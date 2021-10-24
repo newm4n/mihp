@@ -1,0 +1,1 @@
+[MIHP probe {{ .probe }}] Your web-site/service is DOWN

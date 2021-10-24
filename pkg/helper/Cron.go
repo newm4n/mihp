@@ -3,6 +3,7 @@ package helper
 import (
 	"fmt"
 	"github.com/newm4n/mihp/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"regexp"
 	"strings"
 	"time"
@@ -24,6 +25,7 @@ import (
 //     -  1-5   -->  any number from 1 inclusive to 5 inclusive.
 //     -  5-    -->  any number from 5 and beyond
 //     -  -5    -->  any number up to 5 inclusive
+//     -  */5   -->  any number of mod 5
 //     -  *     -->  any number
 //
 // Within the field, you can mix and match. e.g:
@@ -42,6 +44,7 @@ func NewCronStruct(cron string) (*CronStruct, error) {
 	}
 
 	ret := &CronStruct{
+		syntax:            cron,
 		secondInterval:    nil,
 		minuteInterval:    nil,
 		hourInterval:      nil,
@@ -84,6 +87,7 @@ func NewCronStruct(cron string) (*CronStruct, error) {
 }
 
 type CronStruct struct {
+	syntax            string
 	secondInterval    *Interval // 0-59
 	minuteInterval    *Interval // 0-59
 	hourInterval      *Interval // 0-23
@@ -95,24 +99,31 @@ type CronStruct struct {
 
 func (c *CronStruct) IsIn(t time.Time) bool {
 	if !c.secondInterval.IsIn(t.Second()) {
+		logrus.Tracef("Second %d not in cron %s, %s", t.Second(), c.syntax, c.secondInterval.String())
 		return false
 	}
 	if !c.minuteInterval.IsIn(t.Minute()) {
+		logrus.Tracef("Minute %d not in cron %s", t.Minute(), c.syntax)
 		return false
 	}
 	if !c.hourInterval.IsIn(t.Hour()) {
+		logrus.Tracef("Hour %d not in cron %s", t.Hour(), c.syntax)
 		return false
 	}
 	if !c.dayInterval.IsIn(t.Day()) {
+		logrus.Tracef("Day %d not in cron %s", t.Day(), c.syntax)
 		return false
 	}
 	if !c.monthInterval.IsIn(int(t.Month())) {
+		logrus.Tracef("Month %d not in cron %s", int(t.Month()), c.syntax)
 		return false
 	}
 	if !c.yearInterval.IsIn(t.Year()) {
+		logrus.Tracef("Year %d not in cron %s", t.Year(), c.syntax)
 		return false
 	}
 	if !c.dayOfWeekInterval.IsIn(int(t.Weekday())) {
+		logrus.Tracef("Week day %d not in cron %s", int(t.Weekday()), c.syntax)
 		return false
 	}
 	return true

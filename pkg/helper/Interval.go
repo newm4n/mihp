@@ -9,9 +9,23 @@ import (
 	"strings"
 )
 
+func NewRange(from, to int) *Range {
+	if from > to {
+		return &Range{From: to, To: from}
+	}
+	return &Range{From: from, To: to}
+}
+
 type Range struct {
 	From int
 	To   int
+}
+
+func (r *Range) String() string {
+	if r.From != r.To {
+		return fmt.Sprintf("%d:%d", r.From, r.To)
+	}
+	return fmt.Sprintf("%d", r.From)
 }
 
 func (r *Range) IsIn(val int) bool {
@@ -42,19 +56,39 @@ func maxint(a, b int) int {
 
 func (r *Range) Combine(that *Range) (*Range, error) {
 	if r.Touches(that) || r.Overlaps(that) {
-		return &Range{
-			From: minint(r.From, that.From),
-			To:   maxint(r.To, that.To),
-		}, nil
+		return NewRange(minint(r.From, that.From), maxint(r.To, that.To)), nil
 	}
 	return nil, fmt.Errorf("ranges not touching nor overlaps")
 }
 
 type Interval struct {
 	Ranges []*Range
+	Steps  map[int]bool
+}
+
+func (i *Interval) String() string {
+	rStrings := make([]string, len(i.Ranges))
+	for idx, r := range i.Ranges {
+		rStrings[idx] = r.String()
+	}
+	rSteps := make([]string, 0)
+	for idx, _ := range i.Steps {
+		rSteps = append(rSteps, strconv.Itoa(idx))
+	}
+	return fmt.Sprintf("Ranges:%s Steps:%s", strings.Join(rStrings, ","), strings.Join(rSteps, ","))
 }
 
 func (i *Interval) IsIn(val int) bool {
+	if i.Steps != nil {
+		for r, _ := range i.Steps {
+			if val == 0 {
+				return true
+			}
+			if r%val == 0 {
+				return true
+			}
+		}
+	}
 	for _, r := range i.Ranges {
 		if r.IsIn(val) {
 			return true
@@ -68,18 +102,7 @@ func (i *Interval) Add(val int) {
 }
 
 func (i *Interval) AddRange(a, b int) {
-	var r *Range
-	if a < b {
-		r = &Range{
-			From: a,
-			To:   b,
-		}
-	} else {
-		r = &Range{
-			From: b,
-			To:   a,
-		}
-	}
+	r := NewRange(a, b)
 	nRange := make([]*Range, 0)
 	for _, er := range i.Ranges {
 		merges, err := r.Combine(er)
@@ -103,6 +126,7 @@ func StringToInterval(seg string) (*Interval, error) {
 	anyBigger := regexp.MustCompile(`^[0-9]+\-$`)
 	anySmaller := regexp.MustCompile(`^\-[0-9]+$`)
 	rangeIn := regexp.MustCompile(`^[0-9]+\-[0-9]+$`)
+	stepNum := regexp.MustCompile(`^\*/[1-9][0-9]*$`)
 	for _, t := range toks {
 		if strings.ContainsAny(t, " \t\n\r") {
 			return nil, fmt.Errorf("%w : %s", errors.ErrInvalidCronExpression, seg)
@@ -138,6 +162,15 @@ func StringToInterval(seg string) (*Interval, error) {
 				return nil, fmt.Errorf("%w : %s", errors.ErrInvalidCronExpression, seg)
 			} else {
 				itrv.AddRange(from, to)
+			}
+		} else if stepNum.MatchString(t) {
+			if stepInt, err := strconv.Atoi(t[2:]); err == nil {
+				if itrv.Steps == nil {
+					itrv.Steps = make(map[int]bool)
+				}
+				itrv.Steps[stepInt] = true
+			} else {
+				return nil, fmt.Errorf("%w : %s", errors.ErrInvalidCronExpression, seg)
 			}
 		} else {
 			return nil, fmt.Errorf("%w : %s", errors.ErrInvalidCronExpression, seg)

@@ -5,6 +5,10 @@ import (
 	"testing"
 )
 
+func TestRange_IsIn2(t *testing.T) {
+	assert.True(t, NewRange(45, 67).IsIn(50))
+}
+
 func TestMinint(t *testing.T) {
 	assert.Equal(t, 1, minint(1, 2))
 	assert.Equal(t, 2, minint(2, 2))
@@ -18,65 +22,35 @@ func TestMaxint(t *testing.T) {
 }
 
 func TestRange_Touches(t *testing.T) {
-	r1 := &Range{
-		From: 4,
-		To:   10,
-	}
-	r2 := &Range{
-		From: 11,
-		To:   15,
-	}
+	r1 := NewRange(4, 10)
+	r2 := NewRange(11, 15)
 	assert.True(t, r1.Touches(r2))
 }
 
 func TestRange_Combine(t *testing.T) {
-	r1 := &Range{
-		From: 4,
-		To:   10,
-	}
-	r2 := &Range{
-		From: 11,
-		To:   15,
-	}
+	r1 := NewRange(4, 10)
+	r2 := NewRange(11, 15)
 	r3, err := r1.Combine(r2)
 	assert.NoError(t, err)
 	assert.Equal(t, 4, r3.From)
 	assert.Equal(t, 15, r3.To)
 
-	r1 = &Range{
-		From: 4,
-		To:   10,
-	}
-	r2 = &Range{
-		From: 6,
-		To:   15,
-	}
+	r1 = NewRange(4, 10)
+	r2 = NewRange(6, 15)
 	r3, err = r1.Combine(r2)
 	assert.NoError(t, err)
 	assert.Equal(t, 4, r3.From)
 	assert.Equal(t, 15, r3.To)
 
-	r1 = &Range{
-		From: 4,
-		To:   15,
-	}
-	r2 = &Range{
-		From: 6,
-		To:   12,
-	}
+	r1 = NewRange(4, 15)
+	r2 = NewRange(6, 12)
 	r3, err = r1.Combine(r2)
 	assert.NoError(t, err)
 	assert.Equal(t, 4, r3.From)
 	assert.Equal(t, 15, r3.To)
 
-	r1 = &Range{
-		From: 4,
-		To:   15,
-	}
-	r2 = &Range{
-		From: 17,
-		To:   23,
-	}
+	r1 = NewRange(4, 15)
+	r2 = NewRange(17, 23)
 	r3, err = r1.Combine(r2)
 	assert.Error(t, err)
 }

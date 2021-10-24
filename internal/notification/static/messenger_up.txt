@@ -1,0 +1,1 @@
+Hey there, your probe {{ .probe }} has indicated that your web service/site is back-up again after down for {{ .downDuration }}. We're keep monitoring it.

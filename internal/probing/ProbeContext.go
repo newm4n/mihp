@@ -10,6 +10,8 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
+	"time"
 )
 
 func NewProbeContext() ProbeContext {
@@ -19,7 +21,53 @@ func NewProbeContext() ProbeContext {
 type ProbeContext map[string]interface{}
 
 func (pctx ProbeContext) String() string {
-	var buff *bytes.Buffer
+	return pctx.ToString(true)
+}
+
+func ToPrint(val reflect.Value) string {
+	switch val.Type().Kind() {
+	case reflect.String:
+		return fmt.Sprintf("\"%s\"", strings.Replace(val.String(), `"`, `\"`, -1))
+	case reflect.Int, reflect.Int8, reflect.Int32, reflect.Int64:
+		return fmt.Sprintf("%d", val.Int())
+	case reflect.Uint, reflect.Uint8, reflect.Uint32, reflect.Uint64:
+		return fmt.Sprintf("%d", val.Uint())
+	case reflect.Float32, reflect.Float64:
+		return fmt.Sprintf("%f", val.Float())
+	case reflect.Bool:
+		return fmt.Sprintf("%v", val.Bool())
+	case reflect.Array, reflect.Slice:
+		ell := make([]string, val.Len())
+		for i := 0; i < len(ell); i++ {
+			ell[i] = ToPrint(val.Index(i))
+		}
+		return fmt.Sprintf("[%s]", strings.Join(ell, ","))
+	case reflect.Map:
+		ell := make([]string, 0)
+		for _, key := range val.MapKeys() {
+			valueVal := val.MapIndex(key)
+			ell = append(ell, fmt.Sprintf("%s:%s", ToPrint(key), ToPrint(valueVal)))
+		}
+		return fmt.Sprintf("{%s}", strings.Join(ell, ","))
+	case reflect.Struct:
+		switch val.Type().String() {
+		case "time.Time":
+			t := val.Interface().(time.Time)
+			return fmt.Sprintf("\"%s\"", t.String())
+		case "time.Duration":
+			d := val.Interface().(time.Duration)
+			return fmt.Sprintf("\"%s\"", d.String())
+		default:
+			return fmt.Sprintf("unprintable_%s", val.Type().String())
+		}
+	default:
+		return fmt.Sprintf("unprintable_%s", val.Type().String())
+	}
+}
+
+func (pctx ProbeContext) ToString(short bool) string {
+	var buff = &bytes.Buffer{}
+	buff.WriteString("\n")
 	table := tablewriter.NewWriter(buff)
 	table.SetHeader([]string{"NO", "KEY", "VALUE"})
 
@@ -30,7 +78,17 @@ func (pctx ProbeContext) String() string {
 	sort.Strings(keys)
 
 	for k, v := range keys {
-		table.Append([]string{strconv.Itoa(k + 1), v, fmt.Sprintf("%v", pctx[v])})
+		if err, ok := pctx[v].(error); ok {
+			table.Append([]string{strconv.Itoa(k + 1), v, err.Error()})
+		} else {
+			toPrint := ToPrint(reflect.ValueOf(pctx[v]))
+			if reflect.TypeOf(pctx[v]).Kind() == reflect.String && len(toPrint) > 20 && short {
+				if len(toPrint) > 20 {
+					toPrint = fmt.Sprintf("%s...(%d bytes more)", toPrint[:20], len(toPrint)-20)
+				}
+			}
+			table.Append([]string{strconv.Itoa(k + 1), v, toPrint})
+		}
 	}
 	table.SetAlignment(tablewriter.ALIGN_LEFT)
 	table.Render()
@@ -56,7 +114,7 @@ func (pctx ProbeContext) Declarations() ([]*exprpb.Decl, error) {
 		case helper.BaseKindTime:
 			typ = decls.Timestamp
 		default:
-			return nil, fmt.Errorf("context value of key \"%s\" not supported : %s", k, vType.Name())
+			continue
 		}
 		declarations = append(declarations, decls.NewVar(k, typ))
 	}

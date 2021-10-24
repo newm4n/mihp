@@ -1,0 +1,1 @@
+Hey there, your probe {{ .probe }} has indicated that one of your html request has failed, its been up for {{ .upDuration }}. It might because of {{ .cause }}. you should check your web service/site.

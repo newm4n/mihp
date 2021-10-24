@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+func TestRange_IsIn(t *testing.T) {
+
+}
+
 func TestNewCronStruct(t *testing.T) {
 	cron, err := NewCronStruct("* * * * * * *")
 	assert.NoError(t, err)
