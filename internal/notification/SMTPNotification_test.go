@@ -7,11 +7,8 @@ import (
 
 func TestSMTPNotification_SendNotification(t *testing.T) {
 	notif := &SMTPNotification{
-		EmailNotification{
-			SMTPHost:      "mail.smtpbucket.com",
-			SMTPPort:      8025,
-			FromField:     "dummysender@mihp.com",
-			PasswordField: "",
+		EmailNotification: EmailNotification{
+			FromField: "dummysender@mihp.com",
 			ToList: []*Recipient{
 				{
 					Name:  "Dummy Target Notif",
@@ -21,6 +18,9 @@ func TestSMTPNotification_SendNotification(t *testing.T) {
 			CcList:  nil,
 			BccList: nil,
 		},
+		PasswordField: "",
+		SMTPHost:      "mail.smtpbucket.com",
+		SMTPPort:      8025,
 	}
 
 	err := notif.NotifyUp("dummyprobe", "100 minutes")
