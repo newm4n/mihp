@@ -118,5 +118,9 @@ func (pctx ProbeContext) Declarations() ([]*exprpb.Decl, error) {
 		}
 		declarations = append(declarations, decls.NewVar(k, typ))
 	}
+	declarations = append(declarations, decls.NewFunction("IsDefined",
+		decls.NewOverload("KeyExist_string_boolean",
+			[]*exprpb.Type{decls.String},
+			decls.Bool)))
 	return declarations, nil
 }
