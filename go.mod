@@ -1,14 +1,13 @@
-module mihp
+module github.com/newm4n/mihp
 
 go 1.17
 
 require (
 	github.com/google/cel-go v0.9.0
-	github.com/newm4n/mihp v0.0.0-20211024052743-b47c4dbdb79f
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
-	google.golang.org/genproto v0.0.0-20211020151524-b7c3a969101a
+	google.golang.org/genproto v0.0.0-20211021150943-2b146023228c
 )
 
 require (
