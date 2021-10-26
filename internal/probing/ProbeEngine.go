@@ -175,6 +175,9 @@ func (pr *ProbeRequest) Execute(ctx context.Context, probe *Probe, sequence int,
 				}
 				headerValArr[idx] = iv.(string)
 			}
+			for _, hV := range headerValArr {
+				request.Header.Add(hKey, hV)
+			}
 			pctx[fmt.Sprintf("probe.%s.req.%s.header.%s", probe.Name, pr.Name, hKey)] = headerValArr
 		}
 	}
@@ -226,12 +229,13 @@ func (pr *ProbeRequest) Execute(ctx context.Context, probe *Probe, sequence int,
 			pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, pr.Name)] = false
 			pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, pr.Name)] = true
 			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, pr.Name)] = err
+			fmt.Errorf("error when evaluating SuccessIf. got %s", err.Error())
 			return err
 		}
 		if !out.(bool) {
 			pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, pr.Name)] = false
 			pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, pr.Name)] = true
-			return errors.ErrContextValueIsNotBool
+			return nil
 		}
 		pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, pr.Name)] = true
 		pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, pr.Name)] = false
@@ -241,12 +245,13 @@ func (pr *ProbeRequest) Execute(ctx context.Context, probe *Probe, sequence int,
 			pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, pr.Name)] = true
 			pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, pr.Name)] = false
 			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, pr.Name)] = err
+			fmt.Errorf("error when evaluating FailIf. got %s", err.Error())
 			return err
 		}
 		if !out.(bool) {
 			pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, pr.Name)] = true
 			pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, pr.Name)] = false
-			return errors.ErrContextValueIsNotBool
+			return nil
 		}
 		pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, pr.Name)] = false
 		pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, pr.Name)] = true

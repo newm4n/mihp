@@ -6,37 +6,18 @@ import (
 	"github.com/newm4n/mihp/internal/probing/dummy"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"reflect"
 	"testing"
 	"time"
 )
-
-func TestGoCelEvaluateExistBool(t *testing.T) {
-	pc := NewProbeContext()
-	pc["ref.existingBool"] = true
-	expr := `ref.existingBool`
-	out, err := GoCelEvaluate(context.Background(), expr, pc, reflect.Bool)
-	assert.NoError(t, err)
-	assert.True(t, out.(bool))
-}
-
-func TestGoCelEvaluateNonExistBool(t *testing.T) {
-	pc := NewProbeContext()
-	pc["ref.existingBool"] = true
-
-	out, err := GoCelEvaluate(context.Background(), `IsDefined("ref.existingBool")`, pc, reflect.Bool)
-	assert.NoError(t, err)
-	assert.True(t, out.(bool))
-
-	out, err = GoCelEvaluate(context.Background(), `IsDefined("ref.nonExistingBool") `, pc, reflect.Bool)
-	assert.NoError(t, err)
-	assert.False(t, out.(bool))
-}
 
 func TestProbe_Chaining(t *testing.T) {
 	t.Log("Starting dummy server")
 	srv := &dummy.DummyServer{}
 	srv.Start()
+	defer func() {
+		srv.Stop()
+		t.Log("Dummy server stopped")
+	}()
 
 	time.Sleep(3 * time.Second)
 	//srv.Port
@@ -60,16 +41,32 @@ func TestProbe_Chaining(t *testing.T) {
 		},
 		Body:             "",
 		CertificateCheck: "false",
-		StartRequestIf:   "",
-		SuccessIf:        "",
+		SuccessIf:        `IsDefined("probe.Local.req.Login.resp.code") && GetInt("probe.Local.req.Login.resp.code")==200`,
 		FailIf:           "",
 	}
 	probe.Requests = append(probe.Requests, req1)
 
-	defer func() {
-		srv.Stop()
-		t.Log("Dummy server stopped")
-	}()
+	req2 := &ProbeRequest{
+		Name:   "Dashboard",
+		URL:    fmt.Sprintf("\"http://localhost:%d/dashboard\"", srv.Port),
+		Method: `"GET"`,
+		Headers: map[string][]string{
+			"User-Agent":    {"\"mihp/1.0.0 mihp is http probe\""},
+			"Authorization": {"probe.Local.req.Login.resp.header.Testtoken[0]"},
+		},
+		Body:             "",
+		CertificateCheck: "false",
+		StartRequestIf:   `IsDefined("probe.Local.req.Login.success") && GetBool("probe.Local.req.Login.success") == true `,
+		SuccessIf:        `IsDefined("probe.Local.req.Dashboard.resp.code") && GetInt("probe.Local.req.Dashboard.resp.code")==200`,
+		FailIf:           "",
+	}
+	probe.Requests = append(probe.Requests, req2)
+
+	time.Sleep(1500 * time.Millisecond)
+
+	pCtx := NewProbeContext()
+	assert.NoError(t, probe.Execute(context.Background(), pCtx))
+	t.Log(pCtx.ToString(false))
 }
 
 func TestProbe_ExecuteGoogle(t *testing.T) {
@@ -101,5 +98,6 @@ func TestProbe_ExecuteGoogle(t *testing.T) {
 	time.Sleep(1500 * time.Millisecond)
 
 	assert.NoError(t, probe.Execute(context.Background(), pCtx))
+	assert.True(t, pCtx["probe.Local.success"].(bool))
 	t.Log(pCtx.ToString(false))
 }

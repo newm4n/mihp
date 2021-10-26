@@ -10,6 +10,7 @@ import (
 	"github.com/newm4n/mihp/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"reflect"
+	"time"
 )
 
 func GoCelEvaluate(ctx context.Context, expression string, celContext ProbeContext, expectReturnKind reflect.Kind) (interface{}, error) {
@@ -58,7 +59,99 @@ func GoCelEvaluate(ctx context.Context, expression string, celContext ProbeConte
 				}
 				return types.Bool(false)
 			},
-		})
+		},
+		&functions.Overload{
+			Operator: "GetString_string_string",
+			Unary: func(value ref.Val) ref.Val {
+				s1, ok := value.(types.String)
+				if !ok {
+					return types.ValOrErr(s1, "unexpected type '%v' passed to GetString", s1.Type())
+				}
+				if strItv, ok := celContext[s1.Value().(string)]; ok {
+					return types.String(strItv.(string))
+				}
+				return types.String("")
+			},
+		},
+		&functions.Overload{
+			Operator: "GetInt_string_int",
+			Unary: func(value ref.Val) ref.Val {
+				s1, ok := value.(types.String)
+				if !ok {
+					return types.ValOrErr(s1, "unexpected type '%v' passed to GetInt", s1.Type())
+				}
+				if intItv, ok := celContext[s1.Value().(string)]; ok {
+					return types.Int(intItv.(int))
+				}
+				return types.Int(0)
+			},
+		},
+		&functions.Overload{
+			Operator: "GetUint_string_uint",
+			Unary: func(value ref.Val) ref.Val {
+				s1, ok := value.(types.String)
+				if !ok {
+					return types.ValOrErr(s1, "unexpected type '%v' passed to GetUint", s1.Type())
+				}
+				if uintItv, ok := celContext[s1.Value().(string)]; ok {
+					return types.Uint(uintItv.(uint))
+				}
+				return types.Uint(0)
+			},
+		},
+		&functions.Overload{
+			Operator: "GetFloat_string_float",
+			Unary: func(value ref.Val) ref.Val {
+				s1, ok := value.(types.String)
+				if !ok {
+					return types.ValOrErr(s1, "unexpected type '%v' passed to GetFloat", s1.Type())
+				}
+				if floatItv, ok := celContext[s1.Value().(string)]; ok {
+					return types.Double(floatItv.(float64))
+				}
+				return types.Double(0)
+			},
+		},
+		&functions.Overload{
+			Operator: "GetBool_string_bool",
+			Unary: func(value ref.Val) ref.Val {
+				s1, ok := value.(types.String)
+				if !ok {
+					return types.ValOrErr(s1, "unexpected type '%v' passed to GetBool", s1.Type())
+				}
+				if boolItv, ok := celContext[s1.Value().(string)]; ok {
+					return types.Bool(boolItv.(bool))
+				}
+				return types.Bool(false)
+			},
+		},
+		&functions.Overload{
+			Operator: "GetTime_string_time",
+			Unary: func(value ref.Val) ref.Val {
+				s1, ok := value.(types.String)
+				if !ok {
+					return types.ValOrErr(s1, "unexpected type '%v' passed to GetTime", s1.Type())
+				}
+				if timeItv, ok := celContext[s1.Value().(string)]; ok {
+					return types.Timestamp{timeItv.(time.Time)}
+				}
+				return types.Timestamp{time.Now()}
+			},
+		},
+		&functions.Overload{
+			Operator: "GetDuration_string_duration",
+			Unary: func(value ref.Val) ref.Val {
+				s1, ok := value.(types.String)
+				if !ok {
+					return types.ValOrErr(s1, "unexpected type '%v' passed to GetDuration", s1.Type())
+				}
+				if durItv, ok := celContext[s1.Value().(string)]; ok {
+					return types.Duration{durItv.(time.Duration)}
+				}
+				return types.Duration{0}
+			},
+		},
+	)
 
 	prg, err := env.Program(ast, funcs)
 	if err != nil {

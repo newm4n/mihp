@@ -9,6 +9,7 @@ const (
 	BaseKindBool
 	BaseKindString
 	BaseKindTime
+	BaseKindDuration
 	BaseKindArray
 	BaseKindMap
 	BaseKindOther
@@ -35,6 +36,9 @@ func GetBaseKindOfType(typ reflect.Type) BaseKind {
 	case reflect.Struct:
 		if typ.String() == "time.Time" {
 			return BaseKindTime
+		}
+		if typ.String() == "time.Duration" {
+			return BaseKindDuration
 		}
 		return BaseKindOther
 	default:

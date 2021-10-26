@@ -113,8 +113,31 @@ func (pctx ProbeContext) Declarations() ([]*exprpb.Decl, error) {
 			typ = decls.String
 		case helper.BaseKindTime:
 			typ = decls.Timestamp
+		case helper.BaseKindDuration:
+			typ = decls.Duration
+		case helper.BaseKindArray:
+			var subTyp *exprpb.Type
+			switch helper.GetBaseKindOfType(vType.Elem()) {
+			case helper.BaseKindFloat:
+				subTyp = decls.Double
+			case helper.BaseKindBool:
+				subTyp = decls.Bool
+			case helper.BaseKindUint:
+				subTyp = decls.Uint
+			case helper.BaseKindInt:
+				subTyp = decls.Int
+			case helper.BaseKindString:
+				subTyp = decls.String
+			case helper.BaseKindTime:
+				subTyp = decls.Timestamp
+			default:
+				subTyp = decls.Any
+			}
+			typ = decls.NewListType(subTyp)
+		case helper.BaseKindMap:
+			typ = decls.NewMapType(decls.String, decls.String)
 		default:
-			continue
+			typ = decls.Any
 		}
 		declarations = append(declarations, decls.NewVar(k, typ))
 	}
@@ -122,5 +145,34 @@ func (pctx ProbeContext) Declarations() ([]*exprpb.Decl, error) {
 		decls.NewOverload("KeyExist_string_boolean",
 			[]*exprpb.Type{decls.String},
 			decls.Bool)))
+
+	declarations = append(declarations, decls.NewFunction("GetString",
+		decls.NewOverload("GetString_string_string",
+			[]*exprpb.Type{decls.String},
+			decls.String)))
+	declarations = append(declarations, decls.NewFunction("GetInt",
+		decls.NewOverload("GetInt_string_int",
+			[]*exprpb.Type{decls.String},
+			decls.Int)))
+	declarations = append(declarations, decls.NewFunction("GetUint",
+		decls.NewOverload("GetUint_string_uint",
+			[]*exprpb.Type{decls.Uint},
+			decls.Int)))
+	declarations = append(declarations, decls.NewFunction("GetFloat",
+		decls.NewOverload("GetFloat_string_float",
+			[]*exprpb.Type{decls.String},
+			decls.Double)))
+	declarations = append(declarations, decls.NewFunction("GetBool",
+		decls.NewOverload("GetBool_string_bool",
+			[]*exprpb.Type{decls.String},
+			decls.Bool)))
+	declarations = append(declarations, decls.NewFunction("GetTime",
+		decls.NewOverload("GetTime_string_time",
+			[]*exprpb.Type{decls.String},
+			decls.Timestamp)))
+	declarations = append(declarations, decls.NewFunction("GetDuration",
+		decls.NewOverload("GetDuration_string_duration",
+			[]*exprpb.Type{decls.String},
+			decls.Duration)))
 	return declarations, nil
 }

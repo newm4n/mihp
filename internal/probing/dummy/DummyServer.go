@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -33,20 +34,21 @@ func (ds *DummyServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 			resp.Write([]byte("Method Not Allowed"))
 		}
 	case "/dashboard":
-		if auths, exist := req.Header["Authorization"]; exist == false {
-			if auths[0] != ds.RandomKey {
-				resp.Header().Add("Content-Type", "text/plain")
-				resp.WriteHeader(http.StatusForbidden)
-				resp.Write([]byte("Forbidden"))
-			} else {
-				resp.Header().Add("Content-Type", "text/plain")
-				resp.WriteHeader(http.StatusOK)
-				resp.Write([]byte("OK"))
-			}
-		} else {
+		for k, v := range req.Header {
+			fmt.Printf("/dashboard [%s] = %s\n", k, strings.Join(v, ","))
+		}
+		if req.Header.Get("Authorization") == "" {
 			resp.Header().Add("Content-Type", "text/plain")
 			resp.WriteHeader(http.StatusUnauthorized)
 			resp.Write([]byte("Unauthorized"))
+		} else if req.Header.Get("Authorization") != ds.RandomKey {
+			resp.Header().Add("Content-Type", "text/plain")
+			resp.WriteHeader(http.StatusForbidden)
+			resp.Write([]byte("Forbidden"))
+		} else {
+			resp.Header().Add("Content-Type", "text/plain")
+			resp.WriteHeader(http.StatusOK)
+			resp.Write([]byte("OK"))
 		}
 	default:
 		resp.Header().Add("Content-Type", "text/plain")
