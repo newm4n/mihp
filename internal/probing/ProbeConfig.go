@@ -1,5 +1,7 @@
 package probing
 
+type ProbePool []*Probe
+
 type Probe struct {
 	Name                         string          `json:"name"`
 	ID                           string          `json:"id"`
