@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/newm4n/mihp/pkg/errors"
 	"github.com/newm4n/mihp/pkg/helper"
 	"github.com/sirupsen/logrus"
 	"io/ioutil"
@@ -22,242 +21,267 @@ const (
 	NotifTypeMSTeams   = "MSTEAMS"
 )
 
-type Probe struct {
-	Name     string          `json:"name"`
-	ID       string          `json:"id"`
-	Requests []*ProbeRequest `json:"requests"`
+const (
+	TimeoutsSecond = 10
+)
 
-	Cron string `json:"cron"`
+var (
+	engineLog = logrus.WithField("module", "ProbeEngine")
+)
 
-	SuccessNotificationThreshold int `json:"success_notification_threshold"`
-	FailNotificationThreshold    int `json:"fail_notification_threshold"`
-
-	NotificationType string `json:"notification_type"`
-}
-
-func (p *Probe) CanStart(ctx context.Context) bool {
+func ProbeCanStartBySchedule(ctx context.Context, probe *Probe) bool {
 	if ctx.Err() != nil {
-		logrus.Warnf("Will never ever start since context has error. got %s", ctx.Err())
+		engineLog.Warnf("Will never ever start since context has error. got %s", ctx.Err())
 		return false
 	}
-	cs, err := helper.NewCronStruct(p.Cron)
+	cs, err := helper.NewCronStruct(probe.Cron)
 	if err != nil {
-		logrus.Errorf("Will never ever start since cron is wrong. got %s", err.Error())
+		engineLog.Errorf("Will never ever start since cron is wrong. got %s", err.Error())
 		return false
 	}
 	return cs.IsIn(time.Now())
 }
 
-func (p *Probe) Execute(ctx context.Context, pctx ProbeContext) error {
+func ExecuteProbe(ctx context.Context, probe *Probe, pctx ProbeContext) error {
+	probeLog := engineLog.WithField("probe", probe.Name)
 	if ctx.Err() != nil {
+		probeLog.Errorf("context error. got %s", ctx.Err())
 		return fmt.Errorf("%w : context probably timed-out", ctx.Err())
 	}
-	if p.CanStart(ctx) {
-		pctx[fmt.Sprintf("probe.%s.id", p.Name)] = p.ID
+	if ProbeCanStartBySchedule(ctx, probe) {
+		pctx[fmt.Sprintf("probe.%s.id", probe.Name)] = probe.ID
 		startTime := time.Now()
-		pctx[fmt.Sprintf("probe.%s.starttime", p.Name)] = startTime
+		pctx[fmt.Sprintf("probe.%s.starttime", probe.Name)] = startTime
 
 		defer func() {
-			pctx[fmt.Sprintf("probe.%s.endtime", p.Name)] = time.Now()
-			pctx[fmt.Sprintf("probe.%s.duration", p.Name)] = time.Now().Sub(startTime)
+			pctx[fmt.Sprintf("probe.%s.endtime", probe.Name)] = time.Now()
+			pctx[fmt.Sprintf("probe.%s.duration", probe.Name)] = time.Now().Sub(startTime)
 		}()
 
 		reqNames := make([]string, 0)
-		for _, reqs := range p.Requests {
+		for _, reqs := range probe.Requests {
 			reqNames = append(reqNames, reqs.Name)
 		}
 
-		pctx[fmt.Sprintf("probe.%s.req", p.Name)] = strings.Join(reqNames, ",")
+		pctx[fmt.Sprintf("probe.%s.req", probe.Name)] = strings.Join(reqNames, ",")
 
-		for seq, reqs := range p.Requests {
-			err := reqs.Execute(ctx, p, seq, pctx)
+		for seq, reqs := range probe.Requests {
+			err := ExecuteProbeRequest(ctx, probe, reqs, seq, pctx)
 			if err != nil {
-				pctx[fmt.Sprintf("probe.%s.fail", p.Name)] = true
-				pctx[fmt.Sprintf("probe.%s.success", p.Name)] = false
+				pctx[fmt.Sprintf("probe.%s.fail", probe.Name)] = true
+				pctx[fmt.Sprintf("probe.%s.success", probe.Name)] = false
+				probeLog.Errorf("error when execute probe request %s. got %s", reqs.Name, err.Error())
 				return err
 			}
 		}
-		pctx[fmt.Sprintf("probe.%s.fail", p.Name)] = false
-		pctx[fmt.Sprintf("probe.%s.success", p.Name)] = true
+		pctx[fmt.Sprintf("probe.%s.fail", probe.Name)] = false
+		pctx[fmt.Sprintf("probe.%s.success", probe.Name)] = true
 	} else {
-		logrus.Tracef("probe.%s can't start", p.Name)
+		probeLog.Tracef("probe.%s can't start", probe.Name)
 	}
 	return nil
 }
 
-type ProbeRequest struct {
-	Name             string              `json:"name"`
-	URL              string              `json:"url"`
-	Method           string              `json:"method"`
-	Headers          map[string][]string `json:"headers"`
-	Body             string              `json:"body"`
-	CertificateCheck string              `json:"certificate_check"`
-	StartRequestIf   string              `json:"start_request_if"`
-	SuccessIf        string              `json:"success_if"`
-	FailIf           string              `json:"fail_if"`
-}
+func ExecuteProbeRequest(ctx context.Context, probe *Probe, probeRequest *ProbeRequest, sequence int, pctx ProbeContext) error {
 
-func (pr *ProbeRequest) Execute(ctx context.Context, probe *Probe, sequence int, pctx ProbeContext) error {
+	requestLog := engineLog.WithField("probe", probe.Name).WithField("request", probeRequest.Name)
+
 	if ctx.Err() != nil {
-		pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, pr.Name)] = ctx.Err()
+		pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = ctx.Err()
+		requestLog.Errorf("context error. got %s", ctx.Err())
 		return fmt.Errorf("%w : context probably timed-out", ctx.Err())
 	}
-	pctx[fmt.Sprintf("probe.%s.req.%s.sequence", probe.Name, pr.Name)] = sequence
-	if len(pr.StartRequestIf) > 0 {
-		out, err := GoCelEvaluate(ctx, pr.StartRequestIf, pctx, reflect.Bool)
+	pctx[fmt.Sprintf("probe.%s.req.%s.sequence", probe.Name, probeRequest.Name)] = sequence
+	if len(probeRequest.StartRequestIf) > 0 {
+		out, err := GoCelEvaluate(ctx, probeRequest.StartRequestIf, pctx, reflect.Bool)
 		if err != nil {
-			pctx[fmt.Sprintf("probe.%s.req.%s.canstart", probe.Name, pr.Name)] = false
-			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, pr.Name)] = err
+			requestLog.Errorf("error during evaluating StartRequestIf. got %s", err.Error())
+			pctx[fmt.Sprintf("probe.%s.req.%s.canstart", probe.Name, probeRequest.Name)] = false
+			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
 			return err
 		}
 		if !out.(bool) {
-			pctx[fmt.Sprintf("probe.%s.req.%s.canstart", probe.Name, pr.Name)] = false
-			return errors.ErrContextValueIsNotBool
+			requestLog.Tracef("evaluation of StartRequestIf [%s] says that probe should not start", probeRequest.StartRequestIf)
+			pctx[fmt.Sprintf("probe.%s.req.%s.canstart", probe.Name, probeRequest.Name)] = false
+			return fmt.Errorf("probe %s request %s can not start", probe.Name, probeRequest.Name)
 		}
 	}
-	pctx[fmt.Sprintf("probe.%s.req.%s.canstart", probe.Name, pr.Name)] = true
+	requestLog.Tracef("StartRequestIf is OK")
+	pctx[fmt.Sprintf("probe.%s.req.%s.canstart", probe.Name, probeRequest.Name)] = true
 
-	client := NewHttpClient(10, 10, false)
+	requestLog.Tracef("Retriefing HTTP client with %d second timeout", TimeoutsSecond)
+	client := NewHttpClient(TimeoutsSecond, TimeoutsSecond, false)
 	var request *http.Request
 	var err error
 
-	urlItv, err := GoCelEvaluate(ctx, pr.URL, pctx, reflect.String)
+	requestLog.Tracef("Evaluating URL [%s]", probeRequest.URL)
+	urlItv, err := GoCelEvaluate(ctx, probeRequest.URL, pctx, reflect.String)
 	if err != nil {
-		pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, pr.Name)] = err
+		requestLog.Errorf("Error evaluating URL [%s] got %s", probeRequest.URL, err.Error())
+		pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
 		return err
 	}
 	URL := urlItv.(string)
-	pctx[fmt.Sprintf("probe.%s.req.%s.url", probe.Name, pr.Name)] = URL
+	requestLog.Tracef("URL [%s] evaluated as [%s]", probeRequest.URL, URL)
+	pctx[fmt.Sprintf("probe.%s.req.%s.url", probe.Name, probeRequest.Name)] = URL
 
-	methodItv, err := GoCelEvaluate(ctx, pr.Method, pctx, reflect.String)
+	requestLog.Tracef("Evaluating Method [%s]", probeRequest.Method)
+	methodItv, err := GoCelEvaluate(ctx, probeRequest.Method, pctx, reflect.String)
 	if err != nil {
-		pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, pr.Name)] = err
+		requestLog.Errorf("Error evaluating Method [%s] got %s", probeRequest.Method, err.Error())
+		pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
 		return err
 	}
 	METHOD := methodItv.(string)
-	pctx[fmt.Sprintf("probe.%s.req.%s.method", probe.Name, pr.Name)] = METHOD
+	requestLog.Tracef("Method [%s] evaluated as [%s]", probeRequest.Method, METHOD)
+	pctx[fmt.Sprintf("probe.%s.req.%s.method", probe.Name, probeRequest.Name)] = METHOD
 
-	if pr.Body != "" {
-		bodyItv, err := GoCelEvaluate(ctx, pr.Body, pctx, reflect.String)
+	if probeRequest.Body != "" {
+		requestLog.Tracef("Evaluating Body [%s]", probeRequest.Body)
+		bodyItv, err := GoCelEvaluate(ctx, probeRequest.Body, pctx, reflect.String)
 		if err != nil {
-			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, pr.Name)] = err
+			requestLog.Errorf("Error evaluating Body [%s] got %s", probeRequest.Body, err.Error())
+			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
 			return err
 		}
-		pctx[fmt.Sprintf("probe.%s.req.%s.body", probe.Name, pr.Name)] = bodyItv.(string)
+		pctx[fmt.Sprintf("probe.%s.req.%s.body", probe.Name, probeRequest.Name)] = bodyItv.(string)
+
+		requestLog.Tracef("Body [%s] evaluated as [%s]", probeRequest.Body, bodyItv.(string))
+
 		req, err := http.NewRequest(METHOD, URL, bytes.NewBuffer([]byte(bodyItv.(string))))
 		if err != nil {
-			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, pr.Name)] = err
+			requestLog.Errorf("Error while creating new http Request. got %s", err.Error())
+			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
 			return err
 		}
 		request = req
 	} else {
 		req, err := http.NewRequest(METHOD, URL, nil)
 		if err != nil {
-			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, pr.Name)] = err
+			requestLog.Errorf("Error while creating new http Request. got %s", err.Error())
+			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
 			return err
 		}
 		request = req
 	}
 
-	if pr.Headers != nil && len(pr.Headers) > 0 {
+	if probeRequest.Headers != nil && len(probeRequest.Headers) > 0 {
+		requestLog.Tracef("Parsing %d request headers", len(probeRequest.Headers))
 		headerKeys := make([]string, 0)
-		for hKey, _ := range pr.Headers {
+		for hKey, _ := range probeRequest.Headers {
 			headerKeys = append(headerKeys, hKey)
 		}
-		pctx[fmt.Sprintf("probe.%s.req.%s.header", probe.Name, pr.Name)] = headerKeys
-		for hKey, hVals := range pr.Headers {
+		pctx[fmt.Sprintf("probe.%s.req.%s.header", probe.Name, probeRequest.Name)] = headerKeys
+		for hKey, hVals := range probeRequest.Headers {
 			headerValArr := make([]string, len(hVals))
 			for idx, expr := range hVals {
+				requestLog.Tracef("Parsing request headers [%s] = [%s]", hKey, expr)
 				iv, err := GoCelEvaluate(ctx, expr, pctx, reflect.String)
 				if err != nil {
-					pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, pr.Name)] = err
+					requestLog.Errorf("Error Parsing request headers [%s] = [%s]. got %s", hKey, expr, err.Error())
+					pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
 					return err
 				}
+				requestLog.Tracef("Parsing request headers [%s] = [%s] --> [%s]", hKey, expr, iv.(string))
 				headerValArr[idx] = iv.(string)
 			}
 			for _, hV := range headerValArr {
 				request.Header.Add(hKey, hV)
 			}
-			pctx[fmt.Sprintf("probe.%s.req.%s.header.%s", probe.Name, pr.Name, hKey)] = headerValArr
+			pctx[fmt.Sprintf("probe.%s.req.%s.header.%s", probe.Name, probeRequest.Name, hKey)] = headerValArr
 		}
 	}
 
 	reqStartTime := time.Now()
-	pctx[fmt.Sprintf("probe.%s.req.%s.starttime", probe.Name, pr.Name)] = reqStartTime
+	pctx[fmt.Sprintf("probe.%s.req.%s.starttime", probe.Name, probeRequest.Name)] = reqStartTime
+	requestLog.Tracef("Start calling http request.")
 
 	response, err := client.Do(request)
 
-	pctx[fmt.Sprintf("probe.%s.req.%s.duration", probe.Name, pr.Name)] = time.Now().Sub(reqStartTime)
+	pctx[fmt.Sprintf("probe.%s.req.%s.duration", probe.Name, probeRequest.Name)] = time.Now().Sub(reqStartTime)
+	requestLog.Tracef("Calling http request. Takes %s", time.Now().Sub(reqStartTime))
 
 	if err != nil {
-		pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, pr.Name)] = err
+		requestLog.Errorf("Calling http request. Got %s", err.Error())
+		pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
 		return err
 	}
 
-	pctx[fmt.Sprintf("probe.%s.req.%s.resp.code", probe.Name, pr.Name)] = response.StatusCode
+	pctx[fmt.Sprintf("probe.%s.req.%s.resp.code", probe.Name, probeRequest.Name)] = response.StatusCode
+	requestLog.Tracef("Http response code is %d", response.StatusCode)
 
+	requestLog.Tracef("Http response has %d headers", len(response.Header))
 	if response.Header != nil && len(response.Header) > 0 {
 		headerKeys := make([]string, 0)
 		for hKey, _ := range response.Header {
 			headerKeys = append(headerKeys, hKey)
 		}
-		pctx[fmt.Sprintf("probe.%s.req.%s.resp.header", probe.Name, pr.Name)] = headerKeys
+		pctx[fmt.Sprintf("probe.%s.req.%s.resp.header", probe.Name, probeRequest.Name)] = headerKeys
 		for hKey, hVals := range response.Header {
-			pctx[fmt.Sprintf("probe.%s.req.%s.resp.header.%s", probe.Name, pr.Name, hKey)] = hVals
+			requestLog.Tracef("Http response header [%s] = [%s]", hKey, strings.Join(hVals, ","))
+			pctx[fmt.Sprintf("probe.%s.req.%s.resp.header.%s", probe.Name, probeRequest.Name, hKey)] = hVals
 		}
 	}
 
 	bodyBytes, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		pctx[fmt.Sprintf("probe.%s.req.%s.resp.body", probe.Name, pr.Name)] = ""
-		pctx[fmt.Sprintf("probe.%s.req.%s.resp.body.size", probe.Name, pr.Name)] = 0
+		requestLog.Errorf("Error http response body reading. got %s", err.Error())
+		pctx[fmt.Sprintf("probe.%s.req.%s.resp.body", probe.Name, probeRequest.Name)] = ""
+		pctx[fmt.Sprintf("probe.%s.req.%s.resp.body.size", probe.Name, probeRequest.Name)] = 0
 	} else {
-		pctx[fmt.Sprintf("probe.%s.req.%s.resp.body.size", probe.Name, pr.Name)] = len(bodyBytes)
+		requestLog.Tracef("Http response body size is %d bytes", len(bodyBytes))
+		pctx[fmt.Sprintf("probe.%s.req.%s.resp.body.size", probe.Name, probeRequest.Name)] = len(bodyBytes)
 		if hVals := response.Header.Values("Content-Type"); hVals != nil {
 			if strings.Contains(hVals[0], "text/") {
-				pctx[fmt.Sprintf("probe.%s.req.%s.resp.body", probe.Name, pr.Name)] = string(bodyBytes)
+				requestLog.Tracef("Http response body is [%s]", string(bodyBytes))
+				pctx[fmt.Sprintf("probe.%s.req.%s.resp.body", probe.Name, probeRequest.Name)] = string(bodyBytes)
 			} else {
-				pctx[fmt.Sprintf("probe.%s.req.%s.resp.body", probe.Name, pr.Name)] = "<binary>"
+				requestLog.Tracef("Http response body is binary")
+				pctx[fmt.Sprintf("probe.%s.req.%s.resp.body", probe.Name, probeRequest.Name)] = "<binary>"
 			}
 		}
 	}
 
 	// Check success if
-	if len(pr.SuccessIf) > 0 {
-		out, err := GoCelEvaluate(ctx, pr.SuccessIf, pctx, reflect.Bool)
+	if len(probeRequest.SuccessIf) > 0 {
+		requestLog.Tracef("Evaluating SuccessIf [%s]", probeRequest.SuccessIf)
+		out, err := GoCelEvaluate(ctx, probeRequest.SuccessIf, pctx, reflect.Bool)
 		if err != nil {
-			pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, pr.Name)] = false
-			pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, pr.Name)] = true
-			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, pr.Name)] = err
-			fmt.Errorf("error when evaluating SuccessIf. got %s", err.Error())
+			pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, probeRequest.Name)] = false
+			pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, probeRequest.Name)] = true
+			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
+			requestLog.Errorf("error when evaluating SuccessIf [%s]. got %s", probeRequest.SuccessIf, err.Error())
 			return err
 		}
 		if !out.(bool) {
-			pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, pr.Name)] = false
-			pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, pr.Name)] = true
+			requestLog.Errorf("evaluation of SuccessIf [%s] yields a %v", probeRequest.SuccessIf, out.(bool))
+			pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, probeRequest.Name)] = false
+			pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, probeRequest.Name)] = true
 			return nil
 		}
-		pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, pr.Name)] = true
-		pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, pr.Name)] = false
-	} else if len(pr.FailIf) > 0 { // Check fail if
-		out, err := GoCelEvaluate(ctx, pr.FailIf, pctx, reflect.Bool)
+		pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, probeRequest.Name)] = true
+		pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, probeRequest.Name)] = false
+	} else if len(probeRequest.FailIf) > 0 { // Check fail if
+		requestLog.Tracef("Evaluating FailIf [%s]", probeRequest.FailIf)
+		out, err := GoCelEvaluate(ctx, probeRequest.FailIf, pctx, reflect.Bool)
 		if err != nil {
-			pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, pr.Name)] = true
-			pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, pr.Name)] = false
-			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, pr.Name)] = err
-			fmt.Errorf("error when evaluating FailIf. got %s", err.Error())
+			pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, probeRequest.Name)] = true
+			pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, probeRequest.Name)] = false
+			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
+			requestLog.Errorf("error when evaluating FailIf. got %s", err.Error())
 			return err
 		}
 		if !out.(bool) {
-			pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, pr.Name)] = true
-			pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, pr.Name)] = false
+			requestLog.Errorf("evaluation of FailIf [%s] yields a %v", probeRequest.FailIf, out.(bool))
+			pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, probeRequest.Name)] = true
+			pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, probeRequest.Name)] = false
 			return nil
 		}
-		pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, pr.Name)] = false
-		pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, pr.Name)] = true
+		pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, probeRequest.Name)] = false
+		pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, probeRequest.Name)] = true
 	}
-	pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, pr.Name)] = false
-	pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, pr.Name)] = true
+	pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, probeRequest.Name)] = false
+	pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, probeRequest.Name)] = true
 
 	return nil
 }

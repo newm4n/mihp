@@ -11,6 +11,7 @@ import (
 )
 
 func TestProbe_Chaining(t *testing.T) {
+	logrus.SetLevel(logrus.TraceLevel)
 	t.Log("Starting dummy server")
 	srv := &dummy.DummyServer{}
 	srv.Start()
@@ -65,7 +66,7 @@ func TestProbe_Chaining(t *testing.T) {
 	time.Sleep(1500 * time.Millisecond)
 
 	pCtx := NewProbeContext()
-	assert.NoError(t, probe.Execute(context.Background(), pCtx))
+	assert.NoError(t, ExecuteProbe(context.Background(), probe, pCtx))
 	t.Log(pCtx.ToString(false))
 }
 
@@ -97,7 +98,8 @@ func TestProbe_ExecuteGoogle(t *testing.T) {
 
 	time.Sleep(1500 * time.Millisecond)
 
-	assert.NoError(t, probe.Execute(context.Background(), pCtx))
-	assert.True(t, pCtx["probe.Local.success"].(bool))
+	assert.NoError(t, ExecuteProbe(context.Background(), probe, pCtx))
+
+	assert.True(t, pCtx["probe.Google.success"].(bool))
 	t.Log(pCtx.ToString(false))
 }
