@@ -29,6 +29,10 @@ func ToPrint(val reflect.Value) string {
 	case reflect.String:
 		return fmt.Sprintf("\"%s\"", strings.Replace(val.String(), `"`, `\"`, -1))
 	case reflect.Int, reflect.Int8, reflect.Int32, reflect.Int64:
+		if val.Type().String() == "time.Duration" {
+			d := val.Interface().(time.Duration)
+			return fmt.Sprintf("\"%s\"", d)
+		}
 		return fmt.Sprintf("%d", val.Int())
 	case reflect.Uint, reflect.Uint8, reflect.Uint32, reflect.Uint64:
 		return fmt.Sprintf("%d", val.Uint())
@@ -53,10 +57,10 @@ func ToPrint(val reflect.Value) string {
 		switch val.Type().String() {
 		case "time.Time":
 			t := val.Interface().(time.Time)
-			return fmt.Sprintf("\"%s\"", t.String())
+			return fmt.Sprintf("\"%s\"", t.Format(time.RFC3339))
 		case "time.Duration":
 			d := val.Interface().(time.Duration)
-			return fmt.Sprintf("\"%s\"", d.String())
+			return fmt.Sprintf("\"%s\"", d)
 		default:
 			return fmt.Sprintf("unprintable_%s", val.Type().String())
 		}

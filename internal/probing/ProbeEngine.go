@@ -59,7 +59,7 @@ func (p *Probe) Execute(ctx context.Context, pctx ProbeContext) error {
 
 		defer func() {
 			pctx[fmt.Sprintf("probe.%s.endtime", p.Name)] = time.Now()
-			pctx[fmt.Sprintf("probe.%s.duration", p.Name)] = int(time.Now().Sub(startTime) / time.Millisecond)
+			pctx[fmt.Sprintf("probe.%s.duration", p.Name)] = time.Now().Sub(startTime)
 		}()
 
 		reqNames := make([]string, 0)
@@ -187,7 +187,7 @@ func (pr *ProbeRequest) Execute(ctx context.Context, probe *Probe, sequence int,
 
 	response, err := client.Do(request)
 
-	pctx[fmt.Sprintf("probe.%s.req.%s.duration", probe.Name, pr.Name)] = int(time.Now().Sub(reqStartTime) / time.Millisecond)
+	pctx[fmt.Sprintf("probe.%s.req.%s.duration", probe.Name, pr.Name)] = time.Now().Sub(reqStartTime)
 
 	if err != nil {
 		pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, pr.Name)] = err
