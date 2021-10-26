@@ -4,12 +4,35 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/olekukonko/tablewriter"
 	"io/ioutil"
 	"os"
+	"sort"
+	"strconv"
 	"strings"
 )
 
 type Properties map[string]string
+
+func (props Properties) String() string {
+	var buff = &bytes.Buffer{}
+	buff.WriteString("\n")
+	table := tablewriter.NewWriter(buff)
+	table.SetHeader([]string{"NO", "KEY", "VALUE"})
+
+	keys := make([]string, 0)
+	for k := range props {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for k, v := range keys {
+		table.Append([]string{strconv.Itoa(k + 1), v, props[v]})
+	}
+	table.SetAlignment(tablewriter.ALIGN_LEFT)
+	table.Render()
+	return buff.String()
+}
 
 func NewProperties() Properties {
 	return make(Properties)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/newm4n/mihp/pkg/errors"
 	"github.com/newm4n/mihp/pkg/helper"
 	"github.com/sirupsen/logrus"
 	"io/ioutil"
@@ -46,7 +47,7 @@ func ExecuteProbe(ctx context.Context, probe *Probe, pctx ProbeContext) error {
 	probeLog := engineLog.WithField("probe", probe.Name)
 	if ctx.Err() != nil {
 		probeLog.Errorf("context error. got %s", ctx.Err())
-		return fmt.Errorf("%w : context probably timed-out", ctx.Err())
+		return fmt.Errorf("%w : context probably timed-out. got %s", errors.ErrContextError, ctx.Err())
 	}
 	if ProbeCanStartBySchedule(ctx, probe) {
 		pctx[fmt.Sprintf("probe.%s.id", probe.Name)] = probe.ID
@@ -89,7 +90,7 @@ func ExecuteProbeRequest(ctx context.Context, probe *Probe, probeRequest *ProbeR
 	if ctx.Err() != nil {
 		pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = ctx.Err()
 		requestLog.Errorf("context error. got %s", ctx.Err())
-		return fmt.Errorf("%w : context probably timed-out", ctx.Err())
+		return fmt.Errorf("%w : context probably timed-out. got %s", errors.ErrContextError, ctx.Err())
 	}
 	pctx[fmt.Sprintf("probe.%s.req.%s.sequence", probe.Name, probeRequest.Name)] = sequence
 	if len(probeRequest.StartRequestIf) > 0 {
@@ -98,12 +99,12 @@ func ExecuteProbeRequest(ctx context.Context, probe *Probe, probeRequest *ProbeR
 			requestLog.Errorf("error during evaluating StartRequestIf. got %s", err.Error())
 			pctx[fmt.Sprintf("probe.%s.req.%s.canstart", probe.Name, probeRequest.Name)] = false
 			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
-			return err
+			return fmt.Errorf("%w : probe %s request %s parsing StartRequestIf parsing error [%s]", err, probe.Name, probeRequest.Name, probeRequest.StartRequestIf)
 		}
 		if !out.(bool) {
 			requestLog.Tracef("evaluation of StartRequestIf [%s] says that probe should not start", probeRequest.StartRequestIf)
 			pctx[fmt.Sprintf("probe.%s.req.%s.canstart", probe.Name, probeRequest.Name)] = false
-			return fmt.Errorf("probe %s request %s can not start", probe.Name, probeRequest.Name)
+			return fmt.Errorf("%w : probe %s request %s can not start", errors.ErrStartRequestIfIsFalse, probe.Name, probeRequest.Name)
 		}
 	}
 	requestLog.Tracef("StartRequestIf is OK")
@@ -119,7 +120,7 @@ func ExecuteProbeRequest(ctx context.Context, probe *Probe, probeRequest *ProbeR
 	if err != nil {
 		requestLog.Errorf("Error evaluating URL [%s] got %s", probeRequest.URL, err.Error())
 		pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
-		return err
+		return fmt.Errorf("%w : error while parsing URL", err)
 	}
 	URL := urlItv.(string)
 	requestLog.Tracef("URL [%s] evaluated as [%s]", probeRequest.URL, URL)
@@ -130,7 +131,7 @@ func ExecuteProbeRequest(ctx context.Context, probe *Probe, probeRequest *ProbeR
 	if err != nil {
 		requestLog.Errorf("Error evaluating Method [%s] got %s", probeRequest.Method, err.Error())
 		pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
-		return err
+		return fmt.Errorf("%w : error while parsing METHOD", err)
 	}
 	METHOD := methodItv.(string)
 	requestLog.Tracef("Method [%s] evaluated as [%s]", probeRequest.Method, METHOD)
@@ -142,7 +143,7 @@ func ExecuteProbeRequest(ctx context.Context, probe *Probe, probeRequest *ProbeR
 		if err != nil {
 			requestLog.Errorf("Error evaluating Body [%s] got %s", probeRequest.Body, err.Error())
 			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
-			return err
+			return fmt.Errorf("%w : error while parsing Request Body", err)
 		}
 		pctx[fmt.Sprintf("probe.%s.req.%s.body", probe.Name, probeRequest.Name)] = bodyItv.(string)
 
@@ -152,7 +153,7 @@ func ExecuteProbeRequest(ctx context.Context, probe *Probe, probeRequest *ProbeR
 		if err != nil {
 			requestLog.Errorf("Error while creating new http Request. got %s", err.Error())
 			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
-			return err
+			return fmt.Errorf("%w : got %s", errors.ErrCreateHttpClient, err.Error())
 		}
 		request = req
 	} else {
@@ -160,7 +161,7 @@ func ExecuteProbeRequest(ctx context.Context, probe *Probe, probeRequest *ProbeR
 		if err != nil {
 			requestLog.Errorf("Error while creating new http Request. got %s", err.Error())
 			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
-			return err
+			return fmt.Errorf("%w : got %s", errors.ErrCreateHttpRequest, err.Error())
 		}
 		request = req
 	}
@@ -180,7 +181,7 @@ func ExecuteProbeRequest(ctx context.Context, probe *Probe, probeRequest *ProbeR
 				if err != nil {
 					requestLog.Errorf("Error Parsing request headers [%s] = [%s]. got %s", hKey, expr, err.Error())
 					pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
-					return err
+					return fmt.Errorf("%w : error while evaluating probe %s request %s header %s expression [%s]", err, probe.Name, probeRequest.Name, hKey, expr)
 				}
 				requestLog.Tracef("Parsing request headers [%s] = [%s] --> [%s]", hKey, expr, iv.(string))
 				headerValArr[idx] = iv.(string)
@@ -204,7 +205,7 @@ func ExecuteProbeRequest(ctx context.Context, probe *Probe, probeRequest *ProbeR
 	if err != nil {
 		requestLog.Errorf("Calling http request. Got %s", err.Error())
 		pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
-		return err
+		return fmt.Errorf("%w : http error for probe %s request %s got %s", errors.ErrHttpCallError, probe.Name, probeRequest.Name, err.Error())
 	}
 
 	pctx[fmt.Sprintf("probe.%s.req.%s.resp.code", probe.Name, probeRequest.Name)] = response.StatusCode
@@ -251,13 +252,13 @@ func ExecuteProbeRequest(ctx context.Context, probe *Probe, probeRequest *ProbeR
 			pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, probeRequest.Name)] = true
 			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
 			requestLog.Errorf("error when evaluating SuccessIf [%s]. got %s", probeRequest.SuccessIf, err.Error())
-			return err
+			return fmt.Errorf("%w : probe %s request %s parsing SuccessIf parsing error [%s]", err, probe.Name, probeRequest.Name, probeRequest.SuccessIf)
 		}
 		if !out.(bool) {
 			requestLog.Errorf("evaluation of SuccessIf [%s] yields a %v", probeRequest.SuccessIf, out.(bool))
 			pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, probeRequest.Name)] = false
 			pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, probeRequest.Name)] = true
-			return nil
+			return fmt.Errorf("%w : probe %s request %s SuccessIf criteria returns false", errors.ErrSuccessIfIsFalse, probe.Name, probeRequest.Name)
 		}
 		pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, probeRequest.Name)] = true
 		pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, probeRequest.Name)] = false
@@ -269,13 +270,13 @@ func ExecuteProbeRequest(ctx context.Context, probe *Probe, probeRequest *ProbeR
 			pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, probeRequest.Name)] = false
 			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
 			requestLog.Errorf("error when evaluating FailIf. got %s", err.Error())
-			return err
+			return fmt.Errorf("%w : probe %s request %s parsing FailIf parsing error [%s]", err, probe.Name, probeRequest.Name, probeRequest.FailIf)
 		}
-		if !out.(bool) {
+		if out.(bool) {
 			requestLog.Errorf("evaluation of FailIf [%s] yields a %v", probeRequest.FailIf, out.(bool))
 			pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, probeRequest.Name)] = true
 			pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, probeRequest.Name)] = false
-			return nil
+			return fmt.Errorf("%w : probe %s request %s FailIf criteria returns true", errors.ErrFailIfIsTrue, probe.Name, probeRequest.Name)
 		}
 		pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, probeRequest.Name)] = false
 		pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, probeRequest.Name)] = true

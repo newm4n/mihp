@@ -26,12 +26,12 @@ func TestProbe_Chaining(t *testing.T) {
 	logrus.SetLevel(logrus.TraceLevel)
 	//pCtx := NewProbeContext()
 	probe := &Probe{
-		Name:                         "Local",
-		ID:                           "1001",
-		Requests:                     make([]*ProbeRequest, 0),
-		Cron:                         "* * * * * * *",
-		SuccessNotificationThreshold: 0,
-		FailNotificationThreshold:    0,
+		Name:          "Local",
+		ID:            "1001",
+		Requests:      make([]*ProbeRequest, 0),
+		Cron:          "* * * * * * *",
+		UpThreshold:   0,
+		DownThreshold: 0,
 	}
 	req1 := &ProbeRequest{
 		Name:   "Login",
@@ -74,12 +74,12 @@ func TestProbe_ExecuteGoogle(t *testing.T) {
 	logrus.SetLevel(logrus.TraceLevel)
 	pCtx := NewProbeContext()
 	probe := &Probe{
-		Name:                         "Google",
-		ID:                           "123",
-		Requests:                     make([]*ProbeRequest, 0),
-		Cron:                         "* * * * * * *",
-		SuccessNotificationThreshold: 0,
-		FailNotificationThreshold:    0,
+		Name:          "Google",
+		ID:            "123",
+		Requests:      make([]*ProbeRequest, 0),
+		Cron:          "* * * * * * *",
+		UpThreshold:   0,
+		DownThreshold: 0,
 	}
 	req1 := &ProbeRequest{
 		Name:   "GoogleHome",

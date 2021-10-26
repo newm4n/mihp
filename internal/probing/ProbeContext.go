@@ -212,5 +212,26 @@ func (pctx ProbeContext) Declarations() ([]*exprpb.Decl, error) {
 			[]*exprpb.Type{decls.String, decls.Int},
 			decls.Duration)))
 
+	declarations = append(declarations, decls.NewFunction("GetJsonStringValue",
+		decls.NewOverload("GetJsonStringValue_string_string_string",
+			[]*exprpb.Type{decls.String, decls.String},
+			decls.String)))
+	declarations = append(declarations, decls.NewFunction("GetJsonIntValue",
+		decls.NewOverload("GetJsonIntValue_string_string_int",
+			[]*exprpb.Type{decls.String, decls.String},
+			decls.Int)))
+	declarations = append(declarations, decls.NewFunction("GetJsonUintValue",
+		decls.NewOverload("GetJsonUintValue_string_string_uint",
+			[]*exprpb.Type{decls.String, decls.String},
+			decls.Uint)))
+	declarations = append(declarations, decls.NewFunction("GetJsonFloatValue",
+		decls.NewOverload("GetJsonFloatValue_string_string_float",
+			[]*exprpb.Type{decls.String, decls.String},
+			decls.Double)))
+	declarations = append(declarations, decls.NewFunction("GetJsonBoolValue",
+		decls.NewOverload("GetJsonBoolValue_string_string_float",
+			[]*exprpb.Type{decls.String, decls.String},
+			decls.Bool)))
+
 	return declarations, nil
 }
