@@ -16,7 +16,7 @@ import (
 func GoCelEvaluate(ctx context.Context, expression string, celContext ProbeContext, expectReturnKind reflect.Kind) (output interface{}, err error) {
 	defer func() {
 		if err := recover(); err != nil {
-			err = fmt.Errorf("%w : panic occured during evaluating expression [%s] : got %v", errors.ErrEvalError, expression, err)
+			err = fmt.Errorf("%w : panic occured and recoveredduring evaluating expression [%s] : got %v", errors.ErrEvalError, expression, err)
 			switch expectReturnKind {
 			case reflect.String:
 				output = ""
