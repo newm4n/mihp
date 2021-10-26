@@ -174,5 +174,39 @@ func (pctx ProbeContext) Declarations() ([]*exprpb.Decl, error) {
 		decls.NewOverload("GetDuration_string_duration",
 			[]*exprpb.Type{decls.String},
 			decls.Duration)))
+
+	declarations = append(declarations, decls.NewFunction("GetLength",
+		decls.NewOverload("GetLength_string_int",
+			[]*exprpb.Type{decls.String},
+			decls.Int)))
+	declarations = append(declarations, decls.NewFunction("GetStringElem",
+		decls.NewOverload("GetStringElem_string_int_string",
+			[]*exprpb.Type{decls.String, decls.Int},
+			decls.String)))
+	declarations = append(declarations, decls.NewFunction("GetIntElem",
+		decls.NewOverload("GetIntElem_string_int_int",
+			[]*exprpb.Type{decls.String, decls.Int},
+			decls.Int)))
+	declarations = append(declarations, decls.NewFunction("GetUintElem",
+		decls.NewOverload("GetUintElem_string_int_uint",
+			[]*exprpb.Type{decls.String, decls.Int},
+			decls.Uint)))
+	declarations = append(declarations, decls.NewFunction("GetFloatElem",
+		decls.NewOverload("GetFloatElem_string_int_float",
+			[]*exprpb.Type{decls.String, decls.Int},
+			decls.Double)))
+	declarations = append(declarations, decls.NewFunction("GetBoolElem",
+		decls.NewOverload("GetBoolElem_string_int_bool",
+			[]*exprpb.Type{decls.String, decls.Int},
+			decls.Bool)))
+	declarations = append(declarations, decls.NewFunction("GetTimeElem",
+		decls.NewOverload("GetTimeElem_string_int_time",
+			[]*exprpb.Type{decls.String, decls.Int},
+			decls.Timestamp)))
+	declarations = append(declarations, decls.NewFunction("GetDurationElem",
+		decls.NewOverload("GetDurationElem_string_int_duration",
+			[]*exprpb.Type{decls.String, decls.Int},
+			decls.Duration)))
+
 	return declarations, nil
 }

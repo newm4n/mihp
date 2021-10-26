@@ -9,5 +9,6 @@ var (
 	ErrContextValueIsNotBool    = fmt.Errorf("context value is not a boolean")
 	ErrContextValueIsNotTime    = fmt.Errorf("context value is not a time")
 	ErrInvalidCronExpression    = fmt.Errorf("invalid cron expression")
-	ErrEvalReturnInvalid        = fmt.Errorf("expression evaluation return is invalid")
+	ErrEvalError                = fmt.Errorf("error during cel-go evaluation")
+	ErrEvalReturnInvalid        = fmt.Errorf("%w : expression evaluation return is invalid", ErrEvalError)
 )

@@ -51,8 +51,8 @@ func TestProbe_Chaining(t *testing.T) {
 		URL:    fmt.Sprintf("\"http://localhost:%d/dashboard\"", srv.Port),
 		Method: `"GET"`,
 		Headers: map[string][]string{
-			"User-Agent":    {"\"mihp/1.0.0 mihp is http probe\""},
-			"Authorization": {"probe.Local.req.Login.resp.header.Testtoken[0]"},
+			"User-Agent":    {`"mihp/1.0.0 mihp is http probe"`},
+			"Authorization": {`GetStringElem("probe.Local.req.Login.resp.header.Testtoken",0)`},
 		},
 		Body:             "",
 		CertificateCheck: "false",
