@@ -37,7 +37,7 @@ func GetBaseKindOfType(typ reflect.Type) BaseKind {
 		if typ.String() == "time.Time" {
 			return BaseKindTime
 		}
-		if typ.String() == "time.Duration" {
+		if typ.String() == "time.Deadline" {
 			return BaseKindDuration
 		}
 		return BaseKindOther

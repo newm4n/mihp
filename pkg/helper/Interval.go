@@ -80,11 +80,11 @@ func (i *Interval) String() string {
 
 func (i *Interval) IsIn(val int) bool {
 	if i.Steps != nil {
-		for r, _ := range i.Steps {
-			if val == 0 {
+		for r := range i.Steps {
+			if val == 0 || r == 0 {
 				return true
 			}
-			if r%val == 0 {
+			if val%r == 0 {
 				return true
 			}
 		}

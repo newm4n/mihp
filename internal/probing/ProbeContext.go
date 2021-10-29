@@ -29,7 +29,7 @@ func ToPrint(val reflect.Value) string {
 	case reflect.String:
 		return fmt.Sprintf("\"%s\"", strings.Replace(val.String(), `"`, `\"`, -1))
 	case reflect.Int, reflect.Int8, reflect.Int32, reflect.Int64:
-		if val.Type().String() == "time.Duration" {
+		if val.Type().String() == "time.Deadline" {
 			d := val.Interface().(time.Duration)
 			return fmt.Sprintf("\"%s\"", d)
 		}
@@ -58,7 +58,7 @@ func ToPrint(val reflect.Value) string {
 		case "time.Time":
 			t := val.Interface().(time.Time)
 			return fmt.Sprintf("\"%s\"", t.Format(time.RFC3339))
-		case "time.Duration":
+		case "time.Deadline":
 			d := val.Interface().(time.Duration)
 			return fmt.Sprintf("\"%s\"", d)
 		default:

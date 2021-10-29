@@ -349,7 +349,7 @@ func GoCelEvaluate(ctx context.Context, expression string, celContext ProbeConte
 				if strArrItv, ok := celContext[s1.Value().(string)]; ok {
 					strArrTyp := reflect.TypeOf(strArrItv)
 					strArrVal := reflect.ValueOf(strArrItv)
-					if strArrTyp.Elem().Kind() == reflect.Struct && strArrTyp.Elem().String() == "time.Duration" {
+					if strArrTyp.Elem().Kind() == reflect.Struct && strArrTyp.Elem().String() == "time.Deadline" {
 						return types.Duration{strArrVal.Index(int(s2.Value().(int64))).Interface().(time.Duration)}
 					}
 				}

@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/newm4n/mihp/pkg/errors"
-	"github.com/newm4n/mihp/pkg/helper"
+	"github.com/newm4n/mihp/pkg/helper/cron"
 	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
@@ -35,7 +35,7 @@ func ProbeCanStartBySchedule(ctx context.Context, probe *Probe) bool {
 		engineLog.Warnf("Will never ever start since context has error. got %s", ctx.Err())
 		return false
 	}
-	cs, err := helper.NewCronStruct(probe.Cron)
+	cs, err := cron.NewSchedule(probe.Cron)
 	if err != nil {
 		engineLog.Errorf("Will never ever start since cron is wrong. got %s", err.Error())
 		return false

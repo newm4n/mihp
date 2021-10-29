@@ -115,3 +115,25 @@ func TestStringToInterval(t *testing.T) {
 	itv, err = StringToInterval("1-2,4,6-8 ")
 	assert.Error(t, err)
 }
+
+func TestInterval_IsIn_Step(t *testing.T) {
+	i, err := StringToInterval("*/2")
+	assert.Equal(t, 1, len(i.Steps))
+	for s := range i.Steps {
+		t.Logf("%d", s)
+	}
+
+	assert.NoError(t, err)
+	assert.True(t, i.IsIn(10))
+	assert.False(t, i.IsIn(11))
+	assert.True(t, i.IsIn(12))
+	assert.False(t, i.IsIn(13))
+	assert.True(t, i.IsIn(14))
+	assert.False(t, i.IsIn(15))
+	assert.True(t, i.IsIn(16))
+	assert.False(t, i.IsIn(17))
+	assert.True(t, i.IsIn(18))
+	assert.False(t, i.IsIn(19))
+	assert.True(t, i.IsIn(20))
+	assert.False(t, i.IsIn(21))
+}
