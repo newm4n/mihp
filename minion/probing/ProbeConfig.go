@@ -13,6 +13,49 @@ const (
 
 type ProbePool []*Probe
 
+type Probe struct {
+	Name                 string                      `json:"name"`
+	ID                   string                      `json:"id"`
+	Requests             []*ProbeRequest             `json:"requests"`
+	Cron                 string                      `json:"cron"`
+	UpThreshold          int                         `json:"up_threshold"`
+	DownThreshold        int                         `json:"down_threshold"`
+	SMTPNotification     *SMTPNotificationTarget     `json:"smtp_notification"`
+	CallbackNotification *CallbackNotificationTarget `json:"callback_notification"`
+}
+
+type SMTPNotificationTarget struct {
+	SMTPHost string
+	SMTPPort int
+	From     *Mailbox
+	Password string
+	To       []*Mailbox
+	Cc       []*Mailbox
+	Bcc      []*Mailbox
+}
+
+type CallbackNotificationTarget struct {
+	UpCall   string
+	DownCall string
+}
+
+type Mailbox struct {
+	Name  string
+	Email string
+}
+
+type ProbeRequest struct {
+	Name                 string              `json:"name"`
+	URLExpr              string              `json:"url"`
+	MethodExpr           string              `json:"method"`
+	HeadersExpr          map[string][]string `json:"headers"`
+	BodyExpr             string              `json:"body"`
+	CertificateCheckExpr string              `json:"certificate_check"`
+	StartRequestIfExpr   string              `json:"start_request_if"`
+	SuccessIfExpr        string              `json:"success_if"`
+	FailIfExpr           string              `json:"fail_if"`
+}
+
 func (pool ProbePool) FromProperties(prop helper.Properties) error {
 	if ver, ok := prop["version"]; !ok || ver != version {
 		return fmt.Errorf("invalid version %s", prop["version"])
@@ -109,71 +152,28 @@ func (pool ProbePool) ToProperties() helper.Properties {
 			prop[fmt.Sprintf("probe.%d.request.count", idx)] = fmt.Sprintf("%d", len(prob.Requests))
 			for ridx, req := range prob.Requests {
 				prop[fmt.Sprintf("probe.%d.request.%d.name", idx, ridx)] = req.Name
-				prop[fmt.Sprintf("probe.%d.request.%d.url", idx, ridx)] = req.URL
-				prop[fmt.Sprintf("probe.%d.request.%d.method", idx, ridx)] = req.Method
-				prop[fmt.Sprintf("probe.%d.request.%d.body", idx, ridx)] = req.Body
-				if len(req.Headers) > 0 {
+				prop[fmt.Sprintf("probe.%d.request.%d.url", idx, ridx)] = req.URLExpr
+				prop[fmt.Sprintf("probe.%d.request.%d.method", idx, ridx)] = req.MethodExpr
+				prop[fmt.Sprintf("probe.%d.request.%d.body", idx, ridx)] = req.BodyExpr
+				if len(req.HeadersExpr) > 0 {
 					hNames := make([]string, 0)
-					for hk, _ := range req.Headers {
+					for hk, _ := range req.HeadersExpr {
 						hNames = append(hNames, hk)
 					}
 					prop[fmt.Sprintf("probe.%d.request.%d.header", idx, ridx)] = strings.Join(hNames, ",")
-					for hk, hkVals := range req.Headers {
+					for hk, hkVals := range req.HeadersExpr {
 						prop[fmt.Sprintf("probe.%d.request.%d.header.%s.count", idx, ridx, hk)] = fmt.Sprintf("%d", len(hkVals))
 						for hvIdx, hvs := range hkVals {
 							prop[fmt.Sprintf("probe.%d.request.%d.header.%s.%d", idx, ridx, hk, hvIdx)] = hvs
 						}
 					}
 				}
-				prop[fmt.Sprintf("probe.%d.request.%d.startRequestIf", idx, ridx)] = req.StartRequestIf
-				prop[fmt.Sprintf("probe.%d.request.%d.SuccessIf", idx, ridx)] = req.SuccessIf
-				prop[fmt.Sprintf("probe.%d.request.%d.FailIf", idx, ridx)] = req.FailIf
-				prop[fmt.Sprintf("probe.%d.request.%d.CertificateCheck", idx, ridx)] = fmt.Sprintf("%v", req.CertificateCheck)
+				prop[fmt.Sprintf("probe.%d.request.%d.startRequestIf", idx, ridx)] = req.StartRequestIfExpr
+				prop[fmt.Sprintf("probe.%d.request.%d.SuccessIfExpr", idx, ridx)] = req.SuccessIfExpr
+				prop[fmt.Sprintf("probe.%d.request.%d.FailIfExpr", idx, ridx)] = req.FailIfExpr
+				prop[fmt.Sprintf("probe.%d.request.%d.CertificateCheckExpr", idx, ridx)] = fmt.Sprintf("%v", req.CertificateCheckExpr)
 			}
 		}
 	}
 	return prop
-}
-
-type Probe struct {
-	Name                 string                      `json:"name"`
-	ID                   string                      `json:"id"`
-	Requests             []*ProbeRequest             `json:"requests"`
-	Cron                 string                      `json:"cron"`
-	UpThreshold          int                         `json:"up_threshold"`
-	DownThreshold        int                         `json:"down_threshold"`
-	SMTPNotification     *SMTPNotificationTarget     `json:"smtp_notification"`
-	CallbackNotification *CallbackNotificationTarget `json:"callback_notification"`
-}
-
-type SMTPNotificationTarget struct {
-	SMTPHost string
-	SMTPPort int
-	From     *Mailbox
-	Password string
-	To       []*Mailbox
-	Cc       []*Mailbox
-	Bcc      []*Mailbox
-}
-
-type CallbackNotificationTarget struct {
-	UpCall   string
-	DownCall string
-}
-
-type Mailbox struct {
-	Name  string
-	Email string
-}
-
-type ProbeRequest struct {
-	Name             string              `json:"name"`
-	URL              string              `json:"url"`
-	Method           string              `json:"method"`
-	Headers          map[string][]string `json:"headers"`
-	Body             string              `json:"body"`
-	CertificateCheck string              `json:"certificate_check"`
-	StartRequestIf   string              `json:"start_request_if"`
-	SuccessIf        string              `json:"success_if"`
-	FailIf           string              `json:"fail_if"`
 }

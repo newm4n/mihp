@@ -18,6 +18,6 @@ var (
 	ErrCreateHttpRequest     = fmt.Errorf("error while creating http request")
 	ErrHttpCallError         = fmt.Errorf("error while making http call")
 	ErrHttpBodyReadError     = fmt.Errorf("error while reading http response body")
-	ErrSuccessIfIsFalse      = fmt.Errorf("probe result SuccessIf false")
-	ErrFailIfIsTrue          = fmt.Errorf("probe result FailIf true")
+	ErrSuccessIfIsFalse      = fmt.Errorf("probe result SuccessIfExpr false")
+	ErrFailIfIsTrue          = fmt.Errorf("probe result FailIfExpr true")
 )

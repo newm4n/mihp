@@ -125,7 +125,7 @@ func (notif *EmailNotification) SendNotification(subject, body string) error {
 
 	receivers := notif.Receivers()
 	sendingLog := sendmailLog.WithField("to", strings.Join(receivers, ","))
-	sendingLog.Infof("sending email Body ... \n%s", bodyBuffer.String())
+	sendingLog.Infof("sending email BodyExpr ... \n%s", bodyBuffer.String())
 	sendingLog.Info("send DUMMY mail success")
 	return nil
 }

@@ -31,7 +31,7 @@ func (ds *DummyServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		} else {
 			resp.Header().Add("Content-Type", "text/plain")
 			resp.WriteHeader(http.StatusMethodNotAllowed)
-			resp.Write([]byte("Method Not Allowed"))
+			resp.Write([]byte("MethodExpr Not Allowed"))
 		}
 	case "/dashboard":
 		for k, v := range req.Header {
