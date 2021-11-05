@@ -3,6 +3,7 @@ package probing
 import (
 	"context"
 	"fmt"
+	"github.com/newm4n/mihp/internal"
 	"github.com/newm4n/mihp/minion/probing/dummy"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -65,14 +66,14 @@ func TestProbe_Chaining(t *testing.T) {
 
 	time.Sleep(1500 * time.Millisecond)
 
-	pCtx := NewProbeContext()
+	pCtx := internal.NewProbeContext()
 	assert.NoError(t, ExecuteProbe(context.Background(), probe, pCtx))
 	t.Log(pCtx.ToString(false))
 }
 
 func TestProbe_ExecuteGoogle(t *testing.T) {
 	logrus.SetLevel(logrus.TraceLevel)
-	pCtx := NewProbeContext()
+	pCtx := internal.NewProbeContext()
 	probe := &Probe{
 		Name:          "Google",
 		ID:            "123",

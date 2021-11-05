@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/newm4n/mihp/internal"
 	"github.com/newm4n/mihp/pkg/errors"
 	"github.com/newm4n/mihp/pkg/helper/cron"
 	"github.com/sirupsen/logrus"
@@ -35,7 +36,7 @@ func ProbeCanStartBySchedule(ctx context.Context, probe *Probe) bool {
 	return cs.IsIn(time.Now())
 }
 
-func ExecuteProbe(ctx context.Context, probe *Probe, pctx ProbeContext) error {
+func ExecuteProbe(ctx context.Context, probe *Probe, pctx internal.ProbeContext) error {
 	probeLog := engineLog.WithField("probe", probe.Name)
 	if ctx.Err() != nil {
 		probeLog.Errorf("context error. got %s", ctx.Err())
@@ -75,7 +76,7 @@ func ExecuteProbe(ctx context.Context, probe *Probe, pctx ProbeContext) error {
 	return nil
 }
 
-func ExecuteProbeRequest(ctx context.Context, probe *Probe, probeRequest *ProbeRequest, sequence int, pctx ProbeContext) error {
+func ExecuteProbeRequest(ctx context.Context, probe *Probe, probeRequest *ProbeRequest, sequence int, pctx internal.ProbeContext) error {
 
 	requestLog := engineLog.WithField("probe", probe.Name).WithField("request", probeRequest.Name)
 

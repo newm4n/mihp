@@ -1,4 +1,4 @@
-package probing
+package internal
 
 import (
 	"encoding/binary"

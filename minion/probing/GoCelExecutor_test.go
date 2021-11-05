@@ -2,6 +2,7 @@ package probing
 
 import (
 	"context"
+	"github.com/newm4n/mihp/internal"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
@@ -9,7 +10,7 @@ import (
 )
 
 func TestGoCelEvaluateExistBool(t *testing.T) {
-	pc := NewProbeContext()
+	pc := internal.NewProbeContext()
 	pc["ref.existingBool"] = true
 	expr := `ref.existingBool`
 	out, err := GoCelEvaluate(context.Background(), expr, pc, reflect.Bool)
@@ -18,7 +19,7 @@ func TestGoCelEvaluateExistBool(t *testing.T) {
 }
 
 func TestGoCelEvaluateArrayString(t *testing.T) {
-	pc := NewProbeContext()
+	pc := internal.NewProbeContext()
 	pc["ref.strArray"] = []string{"one", "two", "three"}
 	pc["ref.intArray"] = []int{10, 11, 12}
 	pc["ref.uintArray"] = []uint{10, 11, 12}
@@ -53,7 +54,7 @@ func TestGoCelEvaluateArrayString(t *testing.T) {
 }
 
 func TestGoCelEvaluateNonExistBool(t *testing.T) {
-	pc := NewProbeContext()
+	pc := internal.NewProbeContext()
 	pc["ref.existingBool"] = true
 	pc["ref.existingTime"] = time.Now()
 

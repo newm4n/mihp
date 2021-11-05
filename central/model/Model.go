@@ -26,7 +26,8 @@ type ProbeNode struct {
 }
 
 type UserRepository interface {
-	SaveNewUser(user *User) (bool, error)
+	GetUserRole(email, password string) (string, error)
+	SaveNewUser(name, email, password, role string) (bool, error)
 	UpdateUser(user *User) (bool, error)
 	DeleteUser(user *User) (bool, error)
 	GetUserByEmail(email *User) (*User, error)

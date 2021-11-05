@@ -7,13 +7,14 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter/functions"
+	"github.com/newm4n/mihp/internal"
 	"github.com/newm4n/mihp/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"reflect"
 	"time"
 )
 
-func GoCelEvaluate(ctx context.Context, expression string, celContext ProbeContext, expectReturnKind reflect.Kind) (output interface{}, err error) {
+func GoCelEvaluate(ctx context.Context, expression string, celContext internal.ProbeContext, expectReturnKind reflect.Kind) (output interface{}, err error) {
 	defer func() {
 		if err := recover(); err != nil {
 			err = fmt.Errorf("%w : panic occured and recoveredduring evaluating expression [%s] : got %v", errors.ErrEvalError, expression, err)
