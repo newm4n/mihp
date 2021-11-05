@@ -119,3 +119,8 @@ type ProbeRequestData struct {
 	SuccessIfExpr      string              `json:"success_if_expr"`
 	FailIfExpr         string              `json:"fail_if_expr"`
 }
+
+type ProbeStatistic struct {
+}
+
+//type
