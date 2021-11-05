@@ -102,25 +102,25 @@ type Schedule struct {
 
 // IsIn will check if the give time argument is matching to the time specified within the schedule.
 func (c *Schedule) IsIn(t time.Time) bool {
-	if !c.secondInterval.IsIn(t.Second()) {
+	if !c.secondInterval.IsIn(int64(t.Second())) {
 		return false
 	}
-	if !c.minuteInterval.IsIn(t.Minute()) {
+	if !c.minuteInterval.IsIn(int64(t.Minute())) {
 		return false
 	}
-	if !c.hourInterval.IsIn(t.Hour()) {
+	if !c.hourInterval.IsIn(int64(t.Hour())) {
 		return false
 	}
-	if !c.dayInterval.IsIn(t.Day()) {
+	if !c.dayInterval.IsIn(int64(t.Day())) {
 		return false
 	}
-	if !c.monthInterval.IsIn(int(t.Month())) {
+	if !c.monthInterval.IsIn(int64(t.Month())) {
 		return false
 	}
-	if !c.yearInterval.IsIn(t.Year()) {
+	if !c.yearInterval.IsIn(int64(t.Year())) {
 		return false
 	}
-	if !c.dayOfWeekInterval.IsIn(int(t.Weekday())) {
+	if !c.dayOfWeekInterval.IsIn(int64(t.Weekday())) {
 		return false
 	}
 

@@ -15,14 +15,6 @@ import (
 )
 
 const (
-	NotifTypeEmailSMTP = "SMTP"
-	NotifTypeCallBack  = "CALLBACK"
-	NotifTypeTelegram  = "TELEGRAM"
-	NotifTypeSlack     = "SLACK"
-	NotifTypeMSTeams   = "MSTEAMS"
-)
-
-const (
 	TimeoutsSecond = 10
 )
 
@@ -93,21 +85,21 @@ func ExecuteProbeRequest(ctx context.Context, probe *Probe, probeRequest *ProbeR
 		return fmt.Errorf("%w : context probably timed-out. got %s", errors.ErrContextError, ctx.Err())
 	}
 	pctx[fmt.Sprintf("probe.%s.req.%s.sequence", probe.Name, probeRequest.Name)] = sequence
-	if len(probeRequest.StartRequestIf) > 0 {
-		out, err := GoCelEvaluate(ctx, probeRequest.StartRequestIf, pctx, reflect.Bool)
+	if len(probeRequest.StartRequestIfExpr) > 0 {
+		out, err := GoCelEvaluate(ctx, probeRequest.StartRequestIfExpr, pctx, reflect.Bool)
 		if err != nil {
-			requestLog.Errorf("error during evaluating StartRequestIf. got %s", err.Error())
+			requestLog.Errorf("error during evaluating StartRequestIfExpr. got %s", err.Error())
 			pctx[fmt.Sprintf("probe.%s.req.%s.canstart", probe.Name, probeRequest.Name)] = false
 			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
-			return fmt.Errorf("%w : probe %s request %s parsing StartRequestIf parsing error [%s]", err, probe.Name, probeRequest.Name, probeRequest.StartRequestIf)
+			return fmt.Errorf("%w : probe %s request %s parsing StartRequestIfExpr parsing error [%s]", err, probe.Name, probeRequest.Name, probeRequest.StartRequestIfExpr)
 		}
 		if !out.(bool) {
-			requestLog.Tracef("evaluation of StartRequestIf [%s] says that probe should not start", probeRequest.StartRequestIf)
+			requestLog.Tracef("evaluation of StartRequestIfExpr [%s] says that probe should not start", probeRequest.StartRequestIfExpr)
 			pctx[fmt.Sprintf("probe.%s.req.%s.canstart", probe.Name, probeRequest.Name)] = false
 			return fmt.Errorf("%w : probe %s request %s can not start", errors.ErrStartRequestIfIsFalse, probe.Name, probeRequest.Name)
 		}
 	}
-	requestLog.Tracef("StartRequestIf is OK")
+	requestLog.Tracef("StartRequestIfExpr is OK")
 	pctx[fmt.Sprintf("probe.%s.req.%s.canstart", probe.Name, probeRequest.Name)] = true
 
 	requestLog.Tracef("Retriefing HTTP client with %d second timeout", TimeoutsSecond)
@@ -115,39 +107,39 @@ func ExecuteProbeRequest(ctx context.Context, probe *Probe, probeRequest *ProbeR
 	var request *http.Request
 	var err error
 
-	requestLog.Tracef("Evaluating URL [%s]", probeRequest.URL)
-	urlItv, err := GoCelEvaluate(ctx, probeRequest.URL, pctx, reflect.String)
+	requestLog.Tracef("Evaluating URLExpr [%s]", probeRequest.URLExpr)
+	urlItv, err := GoCelEvaluate(ctx, probeRequest.URLExpr, pctx, reflect.String)
 	if err != nil {
-		requestLog.Errorf("Error evaluating URL [%s] got %s", probeRequest.URL, err.Error())
+		requestLog.Errorf("Error evaluating URLExpr [%s] got %s", probeRequest.URLExpr, err.Error())
 		pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
-		return fmt.Errorf("%w : error while parsing URL", err)
+		return fmt.Errorf("%w : error while parsing URLExpr", err)
 	}
 	URL := urlItv.(string)
-	requestLog.Tracef("URL [%s] evaluated as [%s]", probeRequest.URL, URL)
+	requestLog.Tracef("URLExpr [%s] evaluated as [%s]", probeRequest.URLExpr, URL)
 	pctx[fmt.Sprintf("probe.%s.req.%s.url", probe.Name, probeRequest.Name)] = URL
 
-	requestLog.Tracef("Evaluating Method [%s]", probeRequest.Method)
-	methodItv, err := GoCelEvaluate(ctx, probeRequest.Method, pctx, reflect.String)
+	requestLog.Tracef("Evaluating MethodExpr [%s]", probeRequest.MethodExpr)
+	methodItv, err := GoCelEvaluate(ctx, probeRequest.MethodExpr, pctx, reflect.String)
 	if err != nil {
-		requestLog.Errorf("Error evaluating Method [%s] got %s", probeRequest.Method, err.Error())
+		requestLog.Errorf("Error evaluating MethodExpr [%s] got %s", probeRequest.MethodExpr, err.Error())
 		pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
 		return fmt.Errorf("%w : error while parsing METHOD", err)
 	}
 	METHOD := methodItv.(string)
-	requestLog.Tracef("Method [%s] evaluated as [%s]", probeRequest.Method, METHOD)
+	requestLog.Tracef("MethodExpr [%s] evaluated as [%s]", probeRequest.MethodExpr, METHOD)
 	pctx[fmt.Sprintf("probe.%s.req.%s.method", probe.Name, probeRequest.Name)] = METHOD
 
-	if probeRequest.Body != "" {
-		requestLog.Tracef("Evaluating Body [%s]", probeRequest.Body)
-		bodyItv, err := GoCelEvaluate(ctx, probeRequest.Body, pctx, reflect.String)
+	if probeRequest.BodyExpr != "" {
+		requestLog.Tracef("Evaluating BodyExpr [%s]", probeRequest.BodyExpr)
+		bodyItv, err := GoCelEvaluate(ctx, probeRequest.BodyExpr, pctx, reflect.String)
 		if err != nil {
-			requestLog.Errorf("Error evaluating Body [%s] got %s", probeRequest.Body, err.Error())
+			requestLog.Errorf("Error evaluating BodyExpr [%s] got %s", probeRequest.BodyExpr, err.Error())
 			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
-			return fmt.Errorf("%w : error while parsing Request Body", err)
+			return fmt.Errorf("%w : error while parsing Request BodyExpr", err)
 		}
 		pctx[fmt.Sprintf("probe.%s.req.%s.body", probe.Name, probeRequest.Name)] = bodyItv.(string)
 
-		requestLog.Tracef("Body [%s] evaluated as [%s]", probeRequest.Body, bodyItv.(string))
+		requestLog.Tracef("BodyExpr [%s] evaluated as [%s]", probeRequest.BodyExpr, bodyItv.(string))
 
 		req, err := http.NewRequest(METHOD, URL, bytes.NewBuffer([]byte(bodyItv.(string))))
 		if err != nil {
@@ -166,14 +158,14 @@ func ExecuteProbeRequest(ctx context.Context, probe *Probe, probeRequest *ProbeR
 		request = req
 	}
 
-	if probeRequest.Headers != nil && len(probeRequest.Headers) > 0 {
-		requestLog.Tracef("Parsing %d request headers", len(probeRequest.Headers))
+	if probeRequest.HeadersExpr != nil && len(probeRequest.HeadersExpr) > 0 {
+		requestLog.Tracef("Parsing %d request headers", len(probeRequest.HeadersExpr))
 		headerKeys := make([]string, 0)
-		for hKey, _ := range probeRequest.Headers {
+		for hKey, _ := range probeRequest.HeadersExpr {
 			headerKeys = append(headerKeys, hKey)
 		}
 		pctx[fmt.Sprintf("probe.%s.req.%s.header", probe.Name, probeRequest.Name)] = headerKeys
-		for hKey, hVals := range probeRequest.Headers {
+		for hKey, hVals := range probeRequest.HeadersExpr {
 			headerValArr := make([]string, len(hVals))
 			for idx, expr := range hVals {
 				requestLog.Tracef("Parsing request headers [%s] = [%s]", hKey, expr)
@@ -244,39 +236,39 @@ func ExecuteProbeRequest(ctx context.Context, probe *Probe, probeRequest *ProbeR
 	}
 
 	// Check success if
-	if len(probeRequest.SuccessIf) > 0 {
-		requestLog.Tracef("Evaluating SuccessIf [%s]", probeRequest.SuccessIf)
-		out, err := GoCelEvaluate(ctx, probeRequest.SuccessIf, pctx, reflect.Bool)
+	if len(probeRequest.SuccessIfExpr) > 0 {
+		requestLog.Tracef("Evaluating SuccessIfExpr [%s]", probeRequest.SuccessIfExpr)
+		out, err := GoCelEvaluate(ctx, probeRequest.SuccessIfExpr, pctx, reflect.Bool)
 		if err != nil {
 			pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, probeRequest.Name)] = false
 			pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, probeRequest.Name)] = true
 			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
-			requestLog.Errorf("error when evaluating SuccessIf [%s]. got %s", probeRequest.SuccessIf, err.Error())
-			return fmt.Errorf("%w : probe %s request %s parsing SuccessIf parsing error [%s]", err, probe.Name, probeRequest.Name, probeRequest.SuccessIf)
+			requestLog.Errorf("error when evaluating SuccessIfExpr [%s]. got %s", probeRequest.SuccessIfExpr, err.Error())
+			return fmt.Errorf("%w : probe %s request %s parsing SuccessIfExpr parsing error [%s]", err, probe.Name, probeRequest.Name, probeRequest.SuccessIfExpr)
 		}
 		if !out.(bool) {
-			requestLog.Errorf("evaluation of SuccessIf [%s] yields a %v", probeRequest.SuccessIf, out.(bool))
+			requestLog.Errorf("evaluation of SuccessIfExpr [%s] yields a %v", probeRequest.SuccessIfExpr, out.(bool))
 			pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, probeRequest.Name)] = false
 			pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, probeRequest.Name)] = true
-			return fmt.Errorf("%w : probe %s request %s SuccessIf criteria returns false", errors.ErrSuccessIfIsFalse, probe.Name, probeRequest.Name)
+			return fmt.Errorf("%w : probe %s request %s SuccessIfExpr criteria returns false", errors.ErrSuccessIfIsFalse, probe.Name, probeRequest.Name)
 		}
 		pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, probeRequest.Name)] = true
 		pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, probeRequest.Name)] = false
-	} else if len(probeRequest.FailIf) > 0 { // Check fail if
-		requestLog.Tracef("Evaluating FailIf [%s]", probeRequest.FailIf)
-		out, err := GoCelEvaluate(ctx, probeRequest.FailIf, pctx, reflect.Bool)
+	} else if len(probeRequest.FailIfExpr) > 0 { // Check fail if
+		requestLog.Tracef("Evaluating FailIfExpr [%s]", probeRequest.FailIfExpr)
+		out, err := GoCelEvaluate(ctx, probeRequest.FailIfExpr, pctx, reflect.Bool)
 		if err != nil {
 			pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, probeRequest.Name)] = true
 			pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, probeRequest.Name)] = false
 			pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
-			requestLog.Errorf("error when evaluating FailIf. got %s", err.Error())
-			return fmt.Errorf("%w : probe %s request %s parsing FailIf parsing error [%s]", err, probe.Name, probeRequest.Name, probeRequest.FailIf)
+			requestLog.Errorf("error when evaluating FailIfExpr. got %s", err.Error())
+			return fmt.Errorf("%w : probe %s request %s parsing FailIfExpr parsing error [%s]", err, probe.Name, probeRequest.Name, probeRequest.FailIfExpr)
 		}
 		if out.(bool) {
-			requestLog.Errorf("evaluation of FailIf [%s] yields a %v", probeRequest.FailIf, out.(bool))
+			requestLog.Errorf("evaluation of FailIfExpr [%s] yields a %v", probeRequest.FailIfExpr, out.(bool))
 			pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, probeRequest.Name)] = true
 			pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, probeRequest.Name)] = false
-			return fmt.Errorf("%w : probe %s request %s FailIf criteria returns true", errors.ErrFailIfIsTrue, probe.Name, probeRequest.Name)
+			return fmt.Errorf("%w : probe %s request %s FailIfExpr criteria returns true", errors.ErrFailIfIsTrue, probe.Name, probeRequest.Name)
 		}
 		pctx[fmt.Sprintf("probe.%s.req.%s.fail", probe.Name, probeRequest.Name)] = false
 		pctx[fmt.Sprintf("probe.%s.req.%s.success", probe.Name, probeRequest.Name)] = true

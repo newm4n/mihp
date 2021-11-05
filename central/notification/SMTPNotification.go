@@ -32,7 +32,7 @@ func (notif *SMTPNotification) SendNotification(subject, body string) error {
 	receivers := notif.Receivers()
 	sendingLog := sendmailLog.WithField("to", strings.Join(receivers, ","))
 
-	sendingLog.Debugf("sending using server %s:%d > Body ... \n%s", notif.SMTPHost, notif.SMTPPort, bodyBuffer.String())
+	sendingLog.Debugf("sending using server %s:%d > BodyExpr ... \n%s", notif.SMTPHost, notif.SMTPPort, bodyBuffer.String())
 	err := smtp.SendMail(fmt.Sprintf("%s:%d", notif.SMTPHost, notif.SMTPPort), auth, notif.FromField, receivers, bodyBuffer.Bytes())
 	if err != nil {
 		sendingLog.Error(err)

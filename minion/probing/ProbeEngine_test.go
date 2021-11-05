@@ -3,7 +3,7 @@ package probing
 import (
 	"context"
 	"fmt"
-	"github.com/newm4n/mihp/internal/probing/dummy"
+	"github.com/newm4n/mihp/minion/probing/dummy"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -34,32 +34,32 @@ func TestProbe_Chaining(t *testing.T) {
 		DownThreshold: 0,
 	}
 	req1 := &ProbeRequest{
-		Name:   "Login",
-		URL:    fmt.Sprintf("\"http://localhost:%d/login\"", srv.Port),
-		Method: `"GET"`,
-		Headers: map[string][]string{
+		Name:       "Login",
+		URLExpr:    fmt.Sprintf("\"http://localhost:%d/login\"", srv.Port),
+		MethodExpr: `"GET"`,
+		HeadersExpr: map[string][]string{
 			"User-Agent": {"\"mihp/1.0.0 mihp is http probe\""},
 		},
-		Body:             "",
-		CertificateCheck: "false",
-		SuccessIf:        `IsDefined("probe.Local.req.Login.resp.code") && GetInt("probe.Local.req.Login.resp.code")==200`,
-		FailIf:           "",
+		BodyExpr:             "",
+		CertificateCheckExpr: "false",
+		SuccessIfExpr:        `IsDefined("probe.Local.req.Login.resp.code") && GetInt("probe.Local.req.Login.resp.code")==200`,
+		FailIfExpr:           "",
 	}
 	probe.Requests = append(probe.Requests, req1)
 
 	req2 := &ProbeRequest{
-		Name:   "Dashboard",
-		URL:    fmt.Sprintf("\"http://localhost:%d/dashboard\"", srv.Port),
-		Method: `"GET"`,
-		Headers: map[string][]string{
+		Name:       "Dashboard",
+		URLExpr:    fmt.Sprintf("\"http://localhost:%d/dashboard\"", srv.Port),
+		MethodExpr: `"GET"`,
+		HeadersExpr: map[string][]string{
 			"User-Agent":    {`"mihp/1.0.0 mihp is http probe"`},
 			"Authorization": {`GetStringElem("probe.Local.req.Login.resp.header.Testtoken",0)`},
 		},
-		Body:             "",
-		CertificateCheck: "false",
-		StartRequestIf:   `IsDefined("probe.Local.req.Login.success") && GetBool("probe.Local.req.Login.success") == true `,
-		SuccessIf:        `IsDefined("probe.Local.req.Dashboard.resp.code") && GetInt("probe.Local.req.Dashboard.resp.code")==200`,
-		FailIf:           "",
+		BodyExpr:             "",
+		CertificateCheckExpr: "false",
+		StartRequestIfExpr:   `IsDefined("probe.Local.req.Login.success") && GetBool("probe.Local.req.Login.success") == true `,
+		SuccessIfExpr:        `IsDefined("probe.Local.req.Dashboard.resp.code") && GetInt("probe.Local.req.Dashboard.resp.code")==200`,
+		FailIfExpr:           "",
 	}
 	probe.Requests = append(probe.Requests, req2)
 
@@ -82,17 +82,17 @@ func TestProbe_ExecuteGoogle(t *testing.T) {
 		DownThreshold: 0,
 	}
 	req1 := &ProbeRequest{
-		Name:   "GoogleHome",
-		URL:    `"https://google.com"`,
-		Method: `"GET"`,
-		Headers: map[string][]string{
+		Name:       "GoogleHome",
+		URLExpr:    `"https://google.com"`,
+		MethodExpr: `"GET"`,
+		HeadersExpr: map[string][]string{
 			"User-Agent": {"\"mihp/1.0.0 mihp is http probe\""},
 		},
-		Body:             "",
-		CertificateCheck: "false",
-		StartRequestIf:   "",
-		SuccessIf:        "",
-		FailIf:           "",
+		BodyExpr:             "",
+		CertificateCheckExpr: "false",
+		StartRequestIfExpr:   "",
+		SuccessIfExpr:        "",
+		FailIfExpr:           "",
 	}
 	probe.Requests = append(probe.Requests, req1)
 

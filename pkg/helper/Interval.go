@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func NewRange(from, to int) *Range {
+func NewRange(from, to int64) *Range {
 	if from > to {
 		return &Range{From: to, To: from}
 	}
@@ -17,8 +17,8 @@ func NewRange(from, to int) *Range {
 }
 
 type Range struct {
-	From int
-	To   int
+	From int64
+	To   int64
 }
 
 func (r *Range) String() string {
@@ -28,7 +28,7 @@ func (r *Range) String() string {
 	return fmt.Sprintf("%d", r.From)
 }
 
-func (r *Range) IsIn(val int) bool {
+func (r *Range) IsIn(val int64) bool {
 	return val >= r.From && val <= r.To
 }
 
@@ -40,14 +40,14 @@ func (r *Range) Overlaps(that *Range) bool {
 	return that.IsIn(r.From) || that.IsIn(r.To) || r.IsIn(that.From) || r.IsIn(that.To) || (that.IsIn(r.From) && that.IsIn(r.To)) || (r.IsIn(that.From) && r.IsIn(that.To))
 }
 
-func minint(a, b int) int {
+func minint(a, b int64) int64 {
 	if a < b {
 		return a
 	}
 	return b
 }
 
-func maxint(a, b int) int {
+func maxint(a, b int64) int64 {
 	if a > b {
 		return a
 	}
@@ -63,7 +63,7 @@ func (r *Range) Combine(that *Range) (*Range, error) {
 
 type Interval struct {
 	Ranges []*Range
-	Steps  map[int]bool
+	Steps  map[int64]bool
 }
 
 func (i *Interval) String() string {
@@ -72,13 +72,13 @@ func (i *Interval) String() string {
 		rStrings[idx] = r.String()
 	}
 	rSteps := make([]string, 0)
-	for idx, _ := range i.Steps {
-		rSteps = append(rSteps, strconv.Itoa(idx))
+	for idx := range i.Steps {
+		rSteps = append(rSteps, fmt.Sprintf("%d", idx))
 	}
 	return fmt.Sprintf("Ranges:%s Steps:%s", strings.Join(rStrings, ","), strings.Join(rSteps, ","))
 }
 
-func (i *Interval) IsIn(val int) bool {
+func (i *Interval) IsIn(val int64) bool {
 	if i.Steps != nil {
 		for r := range i.Steps {
 			if val == 0 || r == 0 {
@@ -97,11 +97,11 @@ func (i *Interval) IsIn(val int) bool {
 	return false
 }
 
-func (i *Interval) Add(val int) {
+func (i *Interval) Add(val int64) {
 	i.AddRange(val, val)
 }
 
-func (i *Interval) AddRange(a, b int) {
+func (i *Interval) AddRange(a, b int64) {
 	r := NewRange(a, b)
 	nRange := make([]*Range, 0)
 	for _, er := range i.Ranges {
@@ -135,21 +135,21 @@ func StringToInterval(seg string) (*Interval, error) {
 			itrv.AddRange(math.MinInt32, math.MaxInt32)
 		} else if numOnly.MatchString(t) {
 			if num, err := strconv.Atoi(t); err == nil {
-				itrv.Add(num)
+				itrv.Add(int64(num))
 				continue
 			} else {
 				return nil, fmt.Errorf("%w : %s", errors.ErrInvalidCronExpression, seg)
 			}
 		} else if anyBigger.MatchString(t) {
 			if num, err := strconv.Atoi(t[:len(t)-2]); err == nil {
-				itrv.AddRange(num, math.MaxInt32)
+				itrv.AddRange(int64(num), math.MaxInt32)
 				continue
 			} else {
 				return nil, fmt.Errorf("%w : %s", errors.ErrInvalidCronExpression, seg)
 			}
 		} else if anySmaller.MatchString(t) {
 			if num, err := strconv.Atoi(t[1:]); err == nil {
-				itrv.AddRange(math.MinInt32, num)
+				itrv.AddRange(math.MinInt32, int64(num))
 				continue
 			} else {
 				return nil, fmt.Errorf("%w : %s", errors.ErrInvalidCronExpression, seg)
@@ -161,14 +161,14 @@ func StringToInterval(seg string) (*Interval, error) {
 			if ferr != nil || terr != nil {
 				return nil, fmt.Errorf("%w : %s", errors.ErrInvalidCronExpression, seg)
 			} else {
-				itrv.AddRange(from, to)
+				itrv.AddRange(int64(from), int64(to))
 			}
 		} else if stepNum.MatchString(t) {
 			if stepInt, err := strconv.Atoi(t[2:]); err == nil {
 				if itrv.Steps == nil {
-					itrv.Steps = make(map[int]bool)
+					itrv.Steps = make(map[int64]bool)
 				}
-				itrv.Steps[stepInt] = true
+				itrv.Steps[int64(stepInt)] = true
 			} else {
 				return nil, fmt.Errorf("%w : %s", errors.ErrInvalidCronExpression, seg)
 			}

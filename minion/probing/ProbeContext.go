@@ -24,6 +24,47 @@ func (pctx ProbeContext) String() string {
 	return pctx.ToString(true)
 }
 
+func (pctx ProbeContext) Serialize() ([]byte, error) {
+	buff := &bytes.Buffer{}
+
+	if err := helper.PutInt16(buff, int16(len(pctx))); err != nil {
+		return nil, err
+	}
+
+	for k, v := range pctx {
+		err := helper.PutString(buff, k)
+		if err != nil {
+			return nil, err
+		}
+		err = helper.Put(buff, v)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return buff.Bytes(), nil
+}
+
+func (pctx ProbeContext) Deserialize(data []byte) error {
+	buff := bytes.NewBuffer(data)
+
+	count, err := helper.ReadInt16(buff)
+	if err != nil {
+		return err
+	}
+	for i := 0; i < int(count); i++ {
+		key, err := helper.ReadString(buff)
+		if err != nil {
+			return err
+		}
+		val, err := helper.Read(buff)
+		if err != nil {
+			return err
+		}
+		pctx[key] = val
+	}
+	return nil
+}
+
 func ToPrint(val reflect.Value) string {
 	switch val.Type().Kind() {
 	case reflect.String:
