@@ -1,6 +1,8 @@
 package model
 
-import "time"
+import (
+	"time"
+)
 
 type ProbeNodeRepository interface {
 	RegisterNewNode(node *ProbeNode) (bool, error)
@@ -97,8 +99,6 @@ type ProbeData struct {
 	ProbeNetworkProvider string `json:"probe_network_provider"`
 	ProbeCity            string `json:"probe_city"`
 
-	Requests []*ProbeRequestData `json:"requests"`
-
 	AssignedToProbeID string `json:"assigned_to_probe_id"`
 }
 
@@ -110,7 +110,10 @@ type ProbeRequestDataRepository interface {
 }
 
 type ProbeRequestData struct {
-	ID                 string              `json:"id"`
+	Name               string              `json:"name"`
+	ProbeDataID        string              `json:"probe_data_id"`
+	Sequence           int                 `json:"sequence"`
+	Description        string              `json:"description"`
 	PathExpr           string              `json:"path_expr"`
 	MethodExpr         string              `json:"method_expr"`
 	HeadersExpr        map[string][]string `json:"headers_expr"`
@@ -119,8 +122,3 @@ type ProbeRequestData struct {
 	SuccessIfExpr      string              `json:"success_if_expr"`
 	FailIfExpr         string              `json:"fail_if_expr"`
 }
-
-type ProbeStatistic struct {
-}
-
-//type
