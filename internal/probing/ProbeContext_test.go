@@ -15,3 +15,7 @@ func TestProbeContext_String(t *testing.T) {
 
 	t.Log(pb.String())
 }
+
+func TestProbeContext_Serialization(t *testing.T) {
+
+}
