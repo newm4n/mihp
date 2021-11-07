@@ -6,76 +6,83 @@ import (
 	mux "github.com/hyperjumptech/hyper-mux"
 	"github.com/newm4n/mihp/central/server/handlers"
 	"github.com/sirupsen/logrus"
-	"github.com/valyala/fasthttp"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
 type HttpServer struct {
-	Host        string
-	Port        int64
-	alive       bool
-	TheServer   *http.Server
-	Middlewares []fasthttp.RequestHandler
-	Mux         *mux.HyperMux
+	Host      string
+	Port      int64
+	TheServer *http.Server
+	Mux       *mux.HyperMux
 }
 
-func (s *HttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (s *HttpServer) Start() {
+	var wait time.Duration
 
-}
+	// StartUpTime records first ime up
+	startUpTime := time.Now()
 
-func (s *HttpServer) Start() error {
-	if !s.alive {
-		s.Mux = mux.NewHyperMux()
-		s.Mux.UseMiddleware(mux.NewCORSMiddleware(mux.DefaultCORSOption))
-		s.Mux.UseMiddleware(mux.ContextSetterMiddleware)
-		s.Mux.UseMiddleware(handlers.BearerCheckMiddleware)
-		handlers.Routing(s.Mux)
-		if s.TheServer == nil {
-			s.TheServer = &http.Server{
-				Addr:              fmt.Sprintf("%s:%d", s.Host, s.Port),
-				Handler:           s,
-				ReadHeaderTimeout: 10 * time.Second,
-				ReadTimeout:       10 * time.Second,
-				WriteTimeout:      10 * time.Second,
-				IdleTimeout:       30 * time.Second,
-			}
+	// Initializing muxes and routing
+	s.Mux = mux.NewHyperMux()
+	s.Mux.UseMiddleware(mux.NewCORSMiddleware(mux.DefaultCORSOption))
+	s.Mux.UseMiddleware(mux.ContextSetterMiddleware)
+	s.Mux.UseMiddleware(mux.GZIPCompressMiddleware)
+	s.Mux.UseMiddleware(handlers.BearerCheckMiddleware)
+	handlers.Routing(s.Mux)
+
+	// Initializing servers etc
+
+	defer s.Shutdown()
+
+	if s.TheServer == nil {
+		s.TheServer = &http.Server{
+			Addr:              fmt.Sprintf("%s:%d", s.Host, s.Port),
+			Handler:           s.Mux,
+			ReadHeaderTimeout: 10 * time.Second,
+			ReadTimeout:       10 * time.Second,
+			WriteTimeout:      10 * time.Second,
+			IdleTimeout:       30 * time.Second,
 		}
-		go func() {
-			err := s.TheServer.ListenAndServe()
-			if err != nil {
-				panic(err.Error())
-			} else {
-				s.alive = true
-			}
-		}()
-	} else {
-		return fmt.Errorf("server already alive")
 	}
-	return nil
-}
-
-func (s *HttpServer) Shutdown() error {
-	if s.alive {
-		err := s.TheServer.Shutdown(context.Background())
+	go func() {
+		err := s.TheServer.ListenAndServe()
 		if err != nil {
-			return err
+			logrus.Error(err.Error())
 		}
-		s.alive = false
-	} else {
-		return fmt.Errorf("server already down")
-	}
-	return nil
+	}()
+
+	gracefulStop := make(chan os.Signal, 1)
+	// We'll accept graceful shutdowns when quit via SIGINT (Ctrl+C)
+	// SIGKILL, SIGQUIT or SIGTERM (Ctrl+/) will not be caught.
+	signal.Notify(gracefulStop, os.Interrupt)
+	signal.Notify(gracefulStop, syscall.SIGTERM)
+	signal.Notify(gracefulStop, syscall.SIGINT)
+
+	// Block until we receive our signal.
+	<-gracefulStop
+
+	// Create a deadline to wait for.
+	ctx, cancel := context.WithTimeout(context.Background(), wait)
+	defer cancel()
+	// Doesn't block if no connections, but will otherwise wait
+	// until the timeout deadline.
+	s.TheServer.Shutdown(ctx)
+	// Optionally, you could run srv.Shutdown in a goroutine and block on
+	// <-ctx.Done() if your application should wait for other services
+	// to finalize based on context cancellation.
+	logrus.Info("shutting down........ bye")
+
+	t := time.Now()
+	upTime := t.Sub(startUpTime)
+	fmt.Println("server was up for : ", upTime.String(), " *******")
+	os.Exit(0)
 }
 
-type LogrusFastHttpLogger struct {
-	LogLevel logrus.Level
-	Logger   *logrus.Entry
-}
+func (s *HttpServer) Shutdown() {
+	// Do all clean-up here
 
-func (ll *LogrusFastHttpLogger) Printf(format string, args ...interface{}) {
-	switch ll.LogLevel {
-	case logrus.DebugLevel:
-		ll.Logger.Debugf(format, args)
-	}
 }

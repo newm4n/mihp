@@ -9,6 +9,7 @@ var (
 )
 
 func Routing(mux *mux.HyperMux) {
+
 	mux.AddRoute(PrefixPath+"/login", "POST", HandleLogin)
 	mux.AddRoute(PrefixPath+"/refresh", "POST", HandleRefresh)
 	//

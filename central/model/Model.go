@@ -61,8 +61,8 @@ type Organization struct {
 }
 
 type CallbackConfiguration struct {
-	UpNotificationURL   string
-	DownNotificationURL string
+	UpNotificationURL   string `json:"up_notification_url"`
+	DownNotificationURL string `json:"down_notification_url"`
 }
 
 type SMTPConfiguration struct {

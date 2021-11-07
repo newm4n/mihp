@@ -12,7 +12,9 @@ require (
 )
 
 require (
-	github.com/hyperjumptech/hyper-mux v1.0.0 // indirect
+	github.com/NYTimes/gziphandler v1.1.1 // indirect
+	github.com/hyperjumptech/hyper-interactive v1.0.0 // indirect
+	github.com/hyperjumptech/hyper-mux v1.1.0 // indirect
 	github.com/rs/cors v1.8.0 // indirect
 )
 
