@@ -3,12 +3,17 @@ module github.com/newm4n/mihp
 go 1.17
 
 require (
+	github.com/SermoDigital/jose v0.0.0-20180104203859-803625baeddc
 	github.com/google/cel-go v0.9.0
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
 	google.golang.org/genproto v0.0.0-20211021150943-2b146023228c
-	github.com/SermoDigital/jose v0.0.0-20180104203859-803625baeddc
+)
+
+require (
+	github.com/hyperjumptech/hyper-mux v1.0.0 // indirect
+	github.com/rs/cors v1.8.0 // indirect
 )
 
 require (

@@ -3,8 +3,8 @@ package server
 import (
 	"context"
 	"fmt"
+	mux "github.com/hyperjumptech/hyper-mux"
 	"github.com/newm4n/mihp/central/server/handlers"
-	"github.com/newm4n/mihp/central/server/mux"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"net/http"
@@ -17,21 +17,19 @@ type HttpServer struct {
 	alive       bool
 	TheServer   *http.Server
 	Middlewares []fasthttp.RequestHandler
-	Mux         *mux.MyMux
+	Mux         *mux.HyperMux
 }
 
 func (s *HttpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (s *HttpServer) InitMiddlewares() {
-	handlers.Routing(s.Mux)
-}
-
 func (s *HttpServer) Start() error {
 	if !s.alive {
-		s.Mux = mux.NewMyMux()
-		s.InitMiddlewares()
+		s.Mux = mux.NewHyperMux()
+		s.Mux.UseMiddleware(mux.NewCORSMiddleware(mux.DefaultCORSOption))
+		s.Mux.UseMiddleware(mux.ContextSetterMiddleware)
+		s.Mux.UseMiddleware(handlers.BearerCheckMiddleware)
 		handlers.Routing(s.Mux)
 		if s.TheServer == nil {
 			s.TheServer = &http.Server{

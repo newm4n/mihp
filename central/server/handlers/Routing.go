@@ -1,14 +1,14 @@
 package handlers
 
 import (
-	"github.com/newm4n/mihp/central/server/mux"
+	mux "github.com/hyperjumptech/hyper-mux"
 )
 
 var (
 	PrefixPath = ""
 )
 
-func Routing(mux *mux.MyMux) {
+func Routing(mux *mux.HyperMux) {
 	mux.AddRoute(PrefixPath+"/login", "POST", HandleLogin)
 	mux.AddRoute(PrefixPath+"/refresh", "POST", HandleRefresh)
 	//

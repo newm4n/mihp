@@ -1,13 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/SermoDigital/jose/crypto"
 	"github.com/SermoDigital/jose/jws"
+	mux "github.com/hyperjumptech/hyper-mux"
 	"github.com/newm4n/mihp/central/model"
 	"github.com/sirupsen/logrus"
-	"github.com/valyala/fasthttp"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -23,48 +24,117 @@ var (
 	userRepo model.UserRepository
 )
 
-func ValidateAuthorizationToken(ctx *fasthttp.RequestCtx) bool {
-	auth := ctx.Request.Header.Peek("Authorization")
-	if auth == nil {
-		return false
-	}
-	sauth := string(auth)
-	if len(auth) <= 7 || !strings.HasPrefix(strings.ToUpper(sauth), "BEARER ") {
-		return false
-	}
-	//token := sauth[7:]
-	return true
+func BearerCheckMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHdr := r.Header.Get("Authorization")
+		if len(authHdr) == 0 || !strings.HasPrefix(strings.ToUpper(authHdr), "BEARER ") {
+			next.ServeHTTP(w, r)
+		} else {
+			stok := authHdr[7:]
+			spec, err := ReadJWTStringToken(true, SignKey, "HS256", stok)
+			if err != nil {
+				next.ServeHTTP(w, r)
+			} else {
+				nContext := context.WithValue(r.Context(), "AUTH-SPEC", spec)
+				next.ServeHTTP(w, r.WithContext(nContext))
+			}
+		}
+	})
 }
 
 func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		ErrorResponse(w, "missing body", fasthttp.StatusBadRequest)
+		mux.WriteString(w, http.StatusBadRequest, "invalid request body")
 		return
 	} else {
-		contentType := "ctx.Request.Header.ContentType()"
+		contentType := r.Header.Get("Content-Type")
 		if contentType != "application/json" {
-			ErrorResponse(w, "Content-Type not json", fasthttp.StatusBadRequest)
+			mux.WriteString(w, http.StatusBadRequest, "content type is not json")
 			return
 		}
 		reqBody := &LoginRequest{}
 		err := json.Unmarshal(bodyBytes, reqBody)
 		if err != nil {
-			ErrorResponse(w, "Error while parsing json body. got "+err.Error(), fasthttp.StatusBadRequest)
+			mux.WriteString(w, http.StatusBadRequest, "Error while parsing json body. got "+err.Error())
 			return
 		}
-		//roles, err := userRepo.GetUserRole(reqBody.Email, reqBody.Password)
-		//if err != nil {
-		//	logrus.Errorf("got error while retrieving user role. got %s", err.Error())
-		//	ErrorResponse(w,"unauthorized", fasthttp.StatusUnauthorized)
-		//	return
-		//}
+		roles, err := userRepo.GetUserRole(reqBody.Email, reqBody.Password)
+		if err != nil {
+			logrus.Errorf("got error while retrieving user role. got %s", err.Error())
+			mux.WriteString(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
 
+		spec := &JWTSpec{
+			SignKey:    SignKey,
+			SignMethod: "HS256",
+			Issuer:     Issuer,
+			Subject:    reqBody.Email,
+			Audiences:  strings.Split(roles, ","),
+			IssuedAt:   time.Now(),
+			NotBefore:  time.Now(),
+			ExpireAt:   time.Now().Add(AccessKeyAge),
+			Additional: map[string]interface{}{
+				"Typ": "ACCESS",
+			},
+		}
+		accessTok, err := CreateJWTStringToken(spec)
+		if err != nil {
+			mux.InternalServerError(w, err)
+			return
+		}
+
+		spec.ExpireAt = time.Now().Add(RefreshKeyAge)
+		spec.Additional = map[string]interface{}{
+			"Typ": "REFRESH",
+		}
+		refreshTok, err := CreateJWTStringToken(spec)
+		if err != nil {
+			mux.InternalServerError(w, err)
+			return
+		}
+
+		lRes := &LoginResponse{
+			Status:       "SUCCESS",
+			AccessToken:  accessTok,
+			RefreshToken: refreshTok,
+		}
+
+		mux.WriteJson(w, http.StatusOK, lRes)
 	}
 }
 
 func HandleRefresh(w http.ResponseWriter, r *http.Request) {
-
+	auth := r.Header.Get("Authorization")
+	if len(auth) == 0 || !strings.HasPrefix(strings.ToUpper(auth), "BEARER ") {
+		mux.WriteString(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	stok := auth[7:]
+	spec, err := ReadJWTStringToken(true, SignKey, "HS256", stok)
+	if err != nil {
+		mux.WriteString(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	if typ, ok := spec.Additional["Typ"]; ok && typ == "REFRESH" {
+		spec.Additional["Typ"] = "ACCESS"
+		spec.NotBefore = time.Now()
+		spec.IssuedAt = time.Now()
+		spec.ExpireAt = time.Now().Add(AccessKeyAge)
+		accessTok, err := CreateJWTStringToken(spec)
+		if err != nil {
+			mux.InternalServerError(w, err)
+			return
+		}
+		resp := &RefreshResponse{
+			Status:      "SUCCESS",
+			AccessToken: accessTok,
+		}
+		mux.WriteJson(w, http.StatusOK, resp)
+	} else {
+		mux.WriteString(w, http.StatusForbidden, "unknown token type")
+	}
 }
 
 type LoginRequest struct {

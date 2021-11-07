@@ -6,6 +6,12 @@ import (
 )
 
 func IsTemplateCompatible(template, path string) bool {
+	if template == path {
+		return true
+	}
+	if !strings.Contains(template, "{") {
+		return false
+	}
 	templatePaths := strings.Split(template, "/")
 	pathPaths := strings.Split(path, "/")
 	if len(templatePaths) != len(pathPaths) {
