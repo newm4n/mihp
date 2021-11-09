@@ -70,7 +70,7 @@ func ToPrint(val reflect.Value) string {
 	case reflect.String:
 		return fmt.Sprintf("\"%s\"", strings.Replace(val.String(), `"`, `\"`, -1))
 	case reflect.Int, reflect.Int8, reflect.Int32, reflect.Int64:
-		if val.Type().String() == "time.Deadline" {
+		if val.Type().String() == "time.Duration" {
 			d := val.Interface().(time.Duration)
 			return fmt.Sprintf("\"%s\"", d)
 		}
@@ -101,7 +101,7 @@ func ToPrint(val reflect.Value) string {
 			return fmt.Sprintf("\"%s\"", t.Format(time.RFC3339))
 		case "time.Deadline":
 			d := val.Interface().(time.Duration)
-			return fmt.Sprintf("\"%s\"", d)
+			return fmt.Sprintf("\"%s\"", d.String())
 		default:
 			return fmt.Sprintf("unprintable_%s", val.Type().String())
 		}
@@ -114,7 +114,7 @@ func (pctx ProbeContext) ToString(short bool) string {
 	var buff = &bytes.Buffer{}
 	buff.WriteString("\n")
 	table := tablewriter.NewWriter(buff)
-	table.SetHeader([]string{"NO", "KEY", "VALUE"})
+	table.SetHeader([]string{"NO", "KEY", "VALUE", "TYPE"})
 
 	keys := make([]string, 0)
 	for k := range pctx {
@@ -132,7 +132,7 @@ func (pctx ProbeContext) ToString(short bool) string {
 					toPrint = fmt.Sprintf("%s...(%d bytes more)", toPrint[:20], len(toPrint)-20)
 				}
 			}
-			table.Append([]string{strconv.Itoa(k + 1), v, toPrint})
+			table.Append([]string{strconv.Itoa(k + 1), v, toPrint, reflect.TypeOf(pctx[v]).String()})
 		}
 	}
 	table.SetAlignment(tablewriter.ALIGN_LEFT)

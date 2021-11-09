@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+func TestPrintDuration(t *testing.T) {
+	t.Log(time.Duration(1505296000).String())
+}
+
 func TestProbeContext_String(t *testing.T) {
 	pb := NewProbeContext()
 	pb["row1Int"] = 123
@@ -14,6 +18,7 @@ func TestProbeContext_String(t *testing.T) {
 	pb["row3Float"] = 123.456
 	pb["row4Bool"] = true
 	pb["row5Time"] = time.Now()
+	pb["rowDuration"] = 133 * time.Second
 
 	t.Log(pb.String())
 }

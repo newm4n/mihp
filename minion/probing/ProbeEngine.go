@@ -42,6 +42,7 @@ func ExecuteProbe(ctx context.Context, probe *Probe, pctx internal.ProbeContext)
 		probeLog.Errorf("context error. got %s", ctx.Err())
 		return fmt.Errorf("%w : context probably timed-out. got %s", errors.ErrContextError, ctx.Err())
 	}
+	pctx["probe"] = probe.Name
 	if ProbeCanStartBySchedule(ctx, probe) {
 		pctx[fmt.Sprintf("probe.%s.id", probe.Name)] = probe.ID
 		startTime := time.Now()
