@@ -82,9 +82,19 @@ type ProbeEventTracker struct {
 
 	LastStatusDown bool
 	UpDownHistory  *list.List
+
+	RequestStatistic map[string]map[int64]*DurationStatistic
+	ProbeStatistic   map[int64]*DurationStatistic
 }
 
-type History struct {
+type DurationStatistic struct {
+	Maximum time.Duration
+	Minimum time.Duration
+	Count   int64
+	Average time.Duration
+}
+
+type DownHistory struct {
 	Down bool
 	Time time.Time
 }
@@ -97,20 +107,22 @@ func (t *ProbeEventTracker) AcceptProbeContext(pbctx internal.ProbeContext, trig
 	name := pbctx["probe"].(string)
 	id := pbctx[fmt.Sprintf("probe.%s.id", name)].(string)
 
+	// todo Record probe duration and request duration here
+
 	if name != t.ProbeName {
 		return
 	}
 	if pbctx[fmt.Sprintf("probe.%s.success", name)].(bool) {
 		t.FailCount = 0
 		t.SuccessCount++
-		t.UpDownHistory.PushBack(&History{
+		t.UpDownHistory.PushBack(&DownHistory{
 			Down: false,
 			Time: pbctx[fmt.Sprintf("probe.%s.starttime", t.ProbeName)].(time.Time),
 		})
 	} else {
 		t.FailCount++
 		t.SuccessCount = 0
-		t.UpDownHistory.PushBack(&History{
+		t.UpDownHistory.PushBack(&DownHistory{
 			Down: true,
 			Time: pbctx[fmt.Sprintf("probe.%s.starttime", t.ProbeName)].(time.Time),
 		})
@@ -124,14 +136,14 @@ func (t *ProbeEventTracker) AcceptProbeContext(pbctx internal.ProbeContext, trig
 		t.LastStatusDown = true
 
 		if t.UpDownHistory.Len() < t.FailThreshold {
-			t.FirstDown = t.UpDownHistory.Front().Value.(*History).Time
+			t.FirstDown = t.UpDownHistory.Front().Value.(*DownHistory).Time
 		} else {
 			ele := t.UpDownHistory.Back()
 			for i := 0; i < t.FailThreshold-1; i++ {
 				ele = ele.Prev()
 			}
-			t.FirstDown = ele.Value.(*History).Time
-			t.LastUp = ele.Prev().Value.(*History).Time
+			t.FirstDown = ele.Value.(*DownHistory).Time
+			t.LastUp = ele.Prev().Value.(*DownHistory).Time
 		}
 
 		trigger(name, id, true, t.FirstUp, t.LastUp, t.FirstDown, t.LastDown)
@@ -139,14 +151,14 @@ func (t *ProbeEventTracker) AcceptProbeContext(pbctx internal.ProbeContext, trig
 		t.LastStatusDown = false
 
 		if t.UpDownHistory.Len() < t.SuccessThreshold {
-			t.FirstUp = t.UpDownHistory.Front().Value.(*History).Time
+			t.FirstUp = t.UpDownHistory.Front().Value.(*DownHistory).Time
 		} else {
 			ele := t.UpDownHistory.Back()
 			for i := 0; i < t.SuccessThreshold-1; i++ {
 				ele = ele.Prev()
 			}
-			t.FirstUp = ele.Value.(*History).Time
-			t.LastDown = ele.Prev().Value.(*History).Time
+			t.FirstUp = ele.Value.(*DownHistory).Time
+			t.LastDown = ele.Prev().Value.(*DownHistory).Time
 		}
 
 		trigger(name, id, false, t.FirstUp, t.LastUp, t.FirstDown, t.LastDown)
