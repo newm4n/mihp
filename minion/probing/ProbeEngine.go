@@ -23,7 +23,7 @@ var (
 	engineLog = logrus.WithField("module", "ProbeEngine")
 )
 
-func ProbeCanStartBySchedule(ctx context.Context, probe *Probe) bool {
+func ProbeCanStartBySchedule(ctx context.Context, probe *internal.Probe) bool {
 	if ctx.Err() != nil {
 		engineLog.Warnf("Will never ever start since context has error. got %s", ctx.Err())
 		return false
@@ -36,7 +36,7 @@ func ProbeCanStartBySchedule(ctx context.Context, probe *Probe) bool {
 	return cs.IsIn(time.Now())
 }
 
-func ExecuteProbe(ctx context.Context, probe *Probe, pctx internal.ProbeContext) error {
+func ExecuteProbe(ctx context.Context, probe *internal.Probe, pctx internal.ProbeContext) error {
 	probeLog := engineLog.WithField("probe", probe.Name)
 	if ctx.Err() != nil {
 		probeLog.Errorf("context error. got %s", ctx.Err())
@@ -77,7 +77,7 @@ func ExecuteProbe(ctx context.Context, probe *Probe, pctx internal.ProbeContext)
 	return nil
 }
 
-func ExecuteProbeRequest(ctx context.Context, probe *Probe, probeRequest *ProbeRequest, sequence int, pctx internal.ProbeContext) error {
+func ExecuteProbeRequest(ctx context.Context, probe *internal.Probe, probeRequest *internal.ProbeRequest, sequence int, pctx internal.ProbeContext) error {
 
 	requestLog := engineLog.WithField("probe", probe.Name).WithField("request", probeRequest.Name)
 

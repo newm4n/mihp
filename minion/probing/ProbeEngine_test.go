@@ -26,16 +26,16 @@ func TestProbe_Chaining(t *testing.T) {
 
 	logrus.SetLevel(logrus.TraceLevel)
 	//pCtx := NewProbeContext()
-	probe := &Probe{
+	probe := &internal.Probe{
 		Name:          "Local",
 		ID:            "1001",
-		Requests:      make([]*ProbeRequest, 0),
+		Requests:      make([]*internal.ProbeRequest, 0),
 		BaseURL:       fmt.Sprintf("http://localhost:%d", srv.Port),
 		Cron:          "* * * * * * *",
 		UpThreshold:   0,
 		DownThreshold: 0,
 	}
-	req1 := &ProbeRequest{
+	req1 := &internal.ProbeRequest{
 		Name:       "Login",
 		PathExpr:   "\"/login\"",
 		MethodExpr: `"GET"`,
@@ -49,7 +49,7 @@ func TestProbe_Chaining(t *testing.T) {
 	}
 	probe.Requests = append(probe.Requests, req1)
 
-	req2 := &ProbeRequest{
+	req2 := &internal.ProbeRequest{
 		Name:       "Dashboard",
 		PathExpr:   "\"/dashboard\"",
 		MethodExpr: `"GET"`,
@@ -75,16 +75,16 @@ func TestProbe_Chaining(t *testing.T) {
 func TestProbe_ExecuteGoogle(t *testing.T) {
 	logrus.SetLevel(logrus.TraceLevel)
 	pCtx := internal.NewProbeContext()
-	probe := &Probe{
+	probe := &internal.Probe{
 		Name:          "Google",
 		ID:            "123",
-		Requests:      make([]*ProbeRequest, 0),
+		Requests:      make([]*internal.ProbeRequest, 0),
 		BaseURL:       `https://google.com`,
 		Cron:          "* * * * * * *",
 		UpThreshold:   0,
 		DownThreshold: 0,
 	}
-	req1 := &ProbeRequest{
+	req1 := &internal.ProbeRequest{
 		Name:       "GoogleHome",
 		PathExpr:   `"/"`,
 		MethodExpr: `"GET"`,

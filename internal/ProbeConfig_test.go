@@ -1,4 +1,4 @@
-package probing
+package internal
 
 import (
 	"github.com/stretchr/testify/assert"
@@ -95,7 +95,7 @@ func TestProbePoolSerialization(t *testing.T) {
 	yamlBytes, err := ProbePoolToYAML(pool)
 	assert.NoError(t, err)
 	yamlByte = yamlBytes
-	t.Log(string(yamlByte))
+	t.Log("\n" + string(yamlByte))
 
 	pool2, err := YAMLToProbePool(yamlByte)
 	assert.NoError(t, err)
