@@ -1,0 +1,17 @@
+probes:
+  probe1:
+    name: "Probe1"
+    id: "47923-32471-3244"
+    cron: "0 */3 * * * * *"
+    upThreshold: 3
+    downThreshold: 3
+    schema: "https"
+    host: "hyperjump.tech"
+    user: ""
+    password: ""
+    requests:
+      request1: "/"
+        path_expr: "\"/\""
+        method_expr: "\"GET\""
+        header_expr:
+

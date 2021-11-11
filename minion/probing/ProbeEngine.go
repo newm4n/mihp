@@ -109,15 +109,16 @@ func ExecuteProbeRequest(ctx context.Context, probe *Probe, probeRequest *ProbeR
 	var request *http.Request
 	var err error
 
-	requestLog.Tracef("Evaluating URLExpr [%s]", probeRequest.URLExpr)
-	urlItv, err := GoCelEvaluate(ctx, probeRequest.URLExpr, pctx, reflect.String)
+	requestLog.Tracef("Evaluating PathExpr [%s]", probeRequest.PathExpr)
+	urlItv, err := GoCelEvaluate(ctx, probeRequest.PathExpr, pctx, reflect.String)
 	if err != nil {
-		requestLog.Errorf("Error evaluating URLExpr [%s] got %s", probeRequest.URLExpr, err.Error())
+		requestLog.Errorf("Error evaluating PathExpr [%s] got %s", probeRequest.PathExpr, err.Error())
 		pctx[fmt.Sprintf("probe.%s.req.%s.error", probe.Name, probeRequest.Name)] = err
 		return fmt.Errorf("%w : error while parsing URLExpr", err)
 	}
-	URL := urlItv.(string)
-	requestLog.Tracef("URLExpr [%s] evaluated as [%s]", probeRequest.URLExpr, URL)
+	URL := fmt.Sprintf("%s%s", probe.BaseURL, urlItv.(string))
+
+	requestLog.Tracef("URLExpr [%s] evaluated as [%s]", probeRequest.PathExpr, URL)
 	pctx[fmt.Sprintf("probe.%s.req.%s.url", probe.Name, probeRequest.Name)] = URL
 
 	requestLog.Tracef("Evaluating MethodExpr [%s]", probeRequest.MethodExpr)

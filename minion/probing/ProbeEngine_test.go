@@ -30,13 +30,14 @@ func TestProbe_Chaining(t *testing.T) {
 		Name:          "Local",
 		ID:            "1001",
 		Requests:      make([]*ProbeRequest, 0),
+		BaseURL:       fmt.Sprintf("http://localhost:%d", srv.Port),
 		Cron:          "* * * * * * *",
 		UpThreshold:   0,
 		DownThreshold: 0,
 	}
 	req1 := &ProbeRequest{
 		Name:       "Login",
-		URLExpr:    fmt.Sprintf("\"http://localhost:%d/login\"", srv.Port),
+		PathExpr:   "\"/login\"",
 		MethodExpr: `"GET"`,
 		HeadersExpr: map[string][]string{
 			"User-Agent": {"\"mihp/1.0.0 mihp is http probe\""},
@@ -50,7 +51,7 @@ func TestProbe_Chaining(t *testing.T) {
 
 	req2 := &ProbeRequest{
 		Name:       "Dashboard",
-		URLExpr:    fmt.Sprintf("\"http://localhost:%d/dashboard\"", srv.Port),
+		PathExpr:   "\"/dashboard\"",
 		MethodExpr: `"GET"`,
 		HeadersExpr: map[string][]string{
 			"User-Agent":    {`"mihp/1.0.0 mihp is http probe"`},
@@ -78,13 +79,14 @@ func TestProbe_ExecuteGoogle(t *testing.T) {
 		Name:          "Google",
 		ID:            "123",
 		Requests:      make([]*ProbeRequest, 0),
+		BaseURL:       `https://google.com`,
 		Cron:          "* * * * * * *",
 		UpThreshold:   0,
 		DownThreshold: 0,
 	}
 	req1 := &ProbeRequest{
 		Name:       "GoogleHome",
-		URLExpr:    `"https://google.com"`,
+		PathExpr:   `"/"`,
 		MethodExpr: `"GET"`,
 		HeadersExpr: map[string][]string{
 			"User-Agent": {"\"mihp/1.0.0 mihp is http probe\""},
