@@ -9,7 +9,7 @@ build:
 #	export GO111MODULE=on; \
 #	GO_ENABLED=0 go build -a -o $(IMAGE_NAME).app cmd/main/Main.go
 #   Use bellow if you're running on linux.
-	GO_ENABLED=0 go build -a -o $(IMAGE_NAME).app cmd/Main.go cmd/SetupConfig.go
+	GO_ENABLED=0 go build -a -o $(IMAGE_NAME).app cmd/*.go
 
 test: build
 	export GO111MODULE on; \

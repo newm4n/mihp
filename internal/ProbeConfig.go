@@ -30,7 +30,7 @@ func MIHPConfigToYAML(config *MIHPConfig) (yamlBytes []byte, err error) {
 
 type CentralConfig struct {
 	ListenHost              string `yaml:"listen_host"`
-	ListenPort              string `yaml:"listen_port"`
+	ListenPort              int    `yaml:"listen_port"`
 	ReadHeaderTimeoutSecond int    `yaml:"read_header_timeout_second"`
 	ReadTimeoutSecond       int    `yaml:"read_timeout"`
 	WriteTimeoutSecond      int    `yaml:"write_timeout"`
@@ -59,6 +59,10 @@ type DBConfig struct {
 type MinionConfig struct {
 	CentralBaseURL string
 	ReportCron     string
+	Name           string
+	CountryISO     string
+	Datacenter     string
+	MinionUID      string
 }
 
 type ProbePool []*Probe
