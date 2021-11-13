@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	interact "github.com/hyperjumptech/hyper-interactive"
@@ -8,6 +9,7 @@ import (
 	"github.com/newm4n/mihp/pkg/helper"
 	"github.com/newm4n/mihp/pkg/helper/cron"
 	"github.com/olekukonko/tablewriter"
+	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"os"
 	"regexp"
@@ -20,7 +22,9 @@ func SetupConfig(configFile string) (err error) {
 	fInfo, err := os.Stat(configFile)
 	if err != nil || fInfo.IsDir() {
 		//Mode = "NEW"
-		Config = &internal.MIHPConfig{}
+		Config = &internal.MIHPConfig{
+			Version: internal.Version,
+		}
 	} else {
 		file, err := os.Open(configFile)
 		if err != nil {
@@ -34,7 +38,9 @@ func SetupConfig(configFile string) (err error) {
 		if err != nil {
 			return err
 		}
-		//Mode = "EDIT"
+		if cfg.Version != internal.Version {
+			return fmt.Errorf("invalid YAML Version %s", cfg.Version)
+		}
 		Config = cfg
 	}
 	return showMainMenu(Config, configFile)
@@ -64,7 +70,7 @@ func showMainMenu(config *internal.MIHPConfig, configFile string) (err error) {
 		table.SetAlignment(tablewriter.ALIGN_LEFT)
 		table.Render()
 
-		selected := interact.Select("What to do ?", []string{"Manage probes", "Configure Central", "Configure Minion", "Save and Finish"}, 1, 3, false)
+		selected := interact.Select("What to do ?", []string{"Manage probes", "Configure Central", "Configure Minion", "Save and Finish"}, 1, 4, false)
 
 		switch selected {
 		case 1:
@@ -873,7 +879,7 @@ func configureCentral(config *internal.MIHPConfig) (err error) {
 			"Set JWT Issuer", "Set JWT Key",
 			"Set JWT Access Token Age", "Set JWT Refresh Token Age",
 			"Configure MySQL", "Configure PostgreSQL",
-			"Load Defaults", "Finish"}, 1, 3, false)
+			"Load Defaults", "Finish"}, 1, 16, false)
 		switch selected {
 		case 1:
 			central.ListenHost = interact.Ask("Specify New Server Host IP", stringDefault(central.ListenHost, "0.0.0.0"), true)
@@ -900,10 +906,10 @@ func configureCentral(config *internal.MIHPConfig) (err error) {
 		case 12:
 			central.JWTRefreshKeyAgeMinute = interact.AskNumber("Specify New Refresh Token Age in Minute", 3, 60*24*365*10, intDefault(central.JWTRefreshKeyAgeMinute, 60*24*365*2), true)
 		case 13:
-			newMySQLDBConfig := ConfigureDatabase("MySQL", central.MySQLConfig)
+			newMySQLDBConfig := configureDatabase("MySQL", central.MySQLConfig)
 			central.MySQLConfig = newMySQLDBConfig
 		case 14:
-			newPostgreSQLDBConfig := ConfigureDatabase("PostgreSQL", central.PostgreSQLConfig)
+			newPostgreSQLDBConfig := configureDatabase("PostgreSQL", central.PostgreSQLConfig)
 			central.PostgreSQLConfig = newPostgreSQLDBConfig
 		case 15:
 			central.AdminUser = "Admin"
@@ -958,7 +964,7 @@ func intDefault(tocheck, alternative int) int {
 	return tocheck
 }
 
-func ConfigureDatabase(dbName string, cfg *internal.DBConfig) *internal.DBConfig {
+func configureDatabase(dbName string, cfg *internal.DBConfig) *internal.DBConfig {
 	if cfg == nil {
 		cfg = &internal.DBConfig{}
 	}
@@ -1013,10 +1019,10 @@ func ConfigureDatabase(dbName string, cfg *internal.DBConfig) *internal.DBConfig
 				} else if strings.ToUpper(dbName) == "POSTGRESQL" {
 					defa = 5432
 				} else {
-					defa = 4321
+					defa = 51423
 				}
 			}
-			cfg.Port = interact.AskNumber("Specify new port number", 1024, 65000, defa, true)
+			cfg.Port = interact.AskNumber("Specify new port number", 1024, 65000, intDefault(cfg.Port, defa), true)
 		case 3:
 			cfg.User = interact.Ask("Specify New DB User", stringDefault(cfg.User, "root"), true)
 		case 4:
@@ -1081,7 +1087,7 @@ func configureMinion(config *internal.MIHPConfig) (err error) {
 			"Finish",
 		}, 1, 7, false) {
 		case 1:
-			minion.CentralBaseURL = interact.Ask("New Name ?", "MyMinion", true)
+			minion.Name = interact.Ask("New Name ?", stringDefault(minion.Name, helper.RandomName()), true)
 		case 2:
 			if interact.Confirm("You want us to autogenerate UID for you ?", true) {
 				minion.MinionUID = uuid.New().String()
@@ -1104,11 +1110,13 @@ func configureMinion(config *internal.MIHPConfig) (err error) {
 					break
 				}
 			}
+		case 4:
+			minion.Datacenter = interact.Ask("New Datacenter ?", stringDefault(minion.Datacenter, helper.RandomName()), true)
 		case 5:
-			minion.CentralBaseURL = interact.Ask("New Central Base URL ?", "https://hyperjump.tech", true)
+			minion.CentralBaseURL = interact.Ask("New Central Base URL ?", stringDefault(minion.CentralBaseURL, "https://hyperjump.tech"), true)
 		case 6:
 			for {
-				minion.ReportCron = interact.Ask("New Reporting CRON ?", "0 */5 * * * * *", true)
+				minion.ReportCron = interact.Ask("New Reporting CRON ?", stringDefault(minion.ReportCron, "0 */5 * * * * *"), true)
 				if _, err := cron.NewSchedule(minion.ReportCron); err != nil {
 					fmt.Println("Invalid CRON syntax")
 					continue
@@ -1129,7 +1137,38 @@ func configureMinion(config *internal.MIHPConfig) (err error) {
 }
 
 func saveAndExist(config *internal.MIHPConfig, configFile string) (err error) {
+	var file *os.File
 	fmt.Printf("Saving to %s\n", configFile)
-	// todo finish this saving
+	fInfo, err := os.Stat(configFile)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			file, err = os.Create(configFile)
+			if err != nil {
+				return err
+			}
+		}
+	} else if fInfo.IsDir() {
+		return fmt.Errorf("%s is directory")
+	} else {
+		err := os.Remove(configFile)
+		if err != nil {
+			return fmt.Errorf("can not replace overwrite %s", configFile)
+		}
+		file, err = os.Create(configFile)
+		if err != nil {
+			return fmt.Errorf("can not create %s", configFile)
+		}
+	}
+	defer file.Close()
+	yamlBytes, err := yaml.Marshal(config)
+	defer func() {
+		fmt.Printf("In case you dont get it. YAML as follow :\n--BEGIN YAML--\n%s\n--END YAML--\n", string(yamlBytes))
+	}()
+	if err != nil {
+		panic(err)
+	}
+	if byteWrite, err := file.Write(yamlBytes); err != nil || byteWrite != len(yamlBytes) {
+		panic("error writing yaml. possibly some content written.")
+	}
 	return nil
 }

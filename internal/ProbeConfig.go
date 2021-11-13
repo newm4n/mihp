@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	version = "1.0.0"
+	Version = "1.0.0"
 )
 
 type MIHPConfig struct {
