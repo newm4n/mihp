@@ -1,19 +1,23 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	interact "github.com/hyperjumptech/hyper-interactive"
 	"github.com/newm4n/mihp/internal"
+	"github.com/newm4n/mihp/minion/probing"
 	"github.com/newm4n/mihp/pkg/helper"
 	"github.com/newm4n/mihp/pkg/helper/cron"
 	"github.com/olekukonko/tablewriter"
+	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"os"
 	"regexp"
 	"strings"
+	"time"
 )
 
 func SetupConfig(configFile string) (err error) {
@@ -23,7 +27,8 @@ func SetupConfig(configFile string) (err error) {
 	if err != nil || fInfo.IsDir() {
 		//Mode = "NEW"
 		Config = &internal.MIHPConfig{
-			Version: internal.Version,
+			Version:   internal.Version,
+			ProbePool: make(internal.ProbePool, 0),
 		}
 	} else {
 		file, err := os.Open(configFile)
@@ -40,6 +45,9 @@ func SetupConfig(configFile string) (err error) {
 		}
 		if cfg.Version != internal.Version {
 			return fmt.Errorf("invalid YAML Version %s", cfg.Version)
+		}
+		if cfg.ProbePool == nil {
+			cfg.ProbePool = make(internal.ProbePool, 0)
 		}
 		Config = cfg
 	}
@@ -99,9 +107,6 @@ func showMainMenu(config *internal.MIHPConfig, configFile string) (err error) {
 }
 
 func manageProbe(config *internal.MIHPConfig) (err error) {
-	if config.ProbePool == nil {
-		config.ProbePool = make(internal.ProbePool, 0)
-	}
 	for {
 		fmt.Println("\n---[ PROBE LIST ]-------------------------------------")
 		table := tablewriter.NewWriter(os.Stdout)
@@ -122,7 +127,7 @@ func manageProbe(config *internal.MIHPConfig) (err error) {
 
 		switch selected {
 		case 1:
-			addProbe(config.ProbePool)
+			addProbe(config)
 		case 2:
 			if len(probeList) == 0 {
 				fmt.Println("There are no probe to remove.")
@@ -149,7 +154,7 @@ func manageProbe(config *internal.MIHPConfig) (err error) {
 				if sel == len(probeList)-1 {
 					continue
 				}
-				editProbe(config.ProbePool, sel)
+				editProbe(config.ProbePool[sel])
 			}
 		case 4:
 			return nil
@@ -165,18 +170,19 @@ func askNoSpaceNotEmpty(question, fieldName, defa string, confirm bool) string {
 	for {
 		answer := interact.Ask(question, defa, confirm)
 		if len(answer) == 0 {
-			fmt.Printf("%s must not empty", fieldName)
+			fmt.Printf("%s must not empty\n", fieldName)
 			continue
 		}
 		if spaceChecker.MatchString(answer) {
-			fmt.Printf("%s must not contains space", fieldName)
+			fmt.Printf("%s must not contains space\n", fieldName)
 			continue
 		}
 		return answer
 	}
 }
 
-func addProbe(pool internal.ProbePool) {
+func addProbe(config *internal.MIHPConfig) {
+	pool := config.ProbePool
 	var newName, newID string
 	for {
 		newName = askNoSpaceNotEmpty("New probe name?", "Name", helper.RandomName(), false)
@@ -203,13 +209,12 @@ func addProbe(pool internal.ProbePool) {
 		ID:       newID,
 		Requests: make([]*internal.ProbeRequest, 0),
 	}
-	pool = append(pool, p)
-	editProbe(pool, len(pool)-1)
+	editProbe(p)
+	logrus.Warn("---------------- ADDING PROBE INTO POOL")
+	config.ProbePool = append(config.ProbePool, p)
 }
 
-func editProbe(pool internal.ProbePool, idx int) {
-	probe := pool[idx]
-
+func editProbe(probe *internal.Probe) {
 	for {
 		fmt.Printf("\n---[ PROBE %s CONFIGURATION ]-------------------------------------\n", probe.Name)
 		table := tablewriter.NewWriter(os.Stdout)
@@ -264,7 +269,7 @@ func editProbe(pool internal.ProbePool, idx int) {
 			"Set Probe Name", "Set Probe ID", "Manage Probe Requests",
 			"Set Probe Base URL", "Set Probe CRON",
 			"Set Up Threshold", "Set DownThreshold", "Configure SMTP Notification",
-			"Configure Callback Notification", "Finish"}, 1, 10, false)
+			"Configure Callback Notification", "Test Probe", "Finish"}, 1, 11, false)
 
 		switch selected {
 		case 1:
@@ -306,6 +311,36 @@ func editProbe(pool internal.ProbePool, idx int) {
 		case 9:
 			configureCallbackNotification(probe)
 		case 10:
+			timeout := interact.AskNumber("Probe timeout in seconds?", 3, 3600, 10, false)
+			fmt.Printf("Please wait while we test the probe ... timeout in %d second\n", timeout)
+
+			pCtx := internal.NewProbeContext()
+			err := probing.ExecuteProbe(context.Background(), probe, pCtx, timeout, true, true)
+			if err != nil {
+				fmt.Printf("Error while runing probe %s. Got %s. Context follows.\n%s\n", probe.Name, err.Error(), pCtx.ToString(true))
+				fmt.Printf("If the error is about I/O, check for some firewall or VPN.\n")
+				path := fmt.Sprintf("./probe-%s-fail-%s.txt", probe.Name, time.Now().Format(time.RFC3339))
+				file, err := os.Create(path)
+				if err != nil {
+					fmt.Printf("can not write context dump to %s\n", path)
+					return
+				}
+				defer file.Close()
+				file.WriteString(pCtx.ToString(false))
+				return
+			}
+			fmt.Printf("Successfuly execute probe %s. Context follows.\n%s\n", probe.Name, pCtx.ToString(true))
+			path := fmt.Sprintf("./probe-%s-success-%s.txt", probe.Name, time.Now().Format(time.RFC3339))
+			file, err := os.Create(path)
+			if err != nil {
+				fmt.Printf("can not write context dump to %s\n", path)
+				return
+			}
+			defer file.Close()
+			file.WriteString(pCtx.ToString(false))
+			fmt.Printf("Context written to %s\n", path)
+			return
+		case 11:
 			return
 		}
 	}

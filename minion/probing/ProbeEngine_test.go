@@ -68,7 +68,7 @@ func TestProbe_Chaining(t *testing.T) {
 	time.Sleep(1500 * time.Millisecond)
 
 	pCtx := internal.NewProbeContext()
-	assert.NoError(t, ExecuteProbe(context.Background(), probe, pCtx))
+	assert.NoError(t, ExecuteProbe(context.Background(), probe, pCtx, 10, true, true))
 	t.Log(pCtx.ToString(false))
 }
 
@@ -101,7 +101,7 @@ func TestProbe_ExecuteGoogle(t *testing.T) {
 
 	time.Sleep(1500 * time.Millisecond)
 
-	assert.NoError(t, ExecuteProbe(context.Background(), probe, pCtx))
+	assert.NoError(t, ExecuteProbe(context.Background(), probe, pCtx, 10, true, true))
 
 	assert.True(t, pCtx["probe.Google.success"].(bool))
 	t.Log(pCtx.ToString(false))

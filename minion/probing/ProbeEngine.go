@@ -36,14 +36,14 @@ func ProbeCanStartBySchedule(ctx context.Context, probe *internal.Probe) bool {
 	return cs.IsIn(time.Now())
 }
 
-func ExecuteProbe(ctx context.Context, probe *internal.Probe, pctx internal.ProbeContext) error {
+func ExecuteProbe(ctx context.Context, probe *internal.Probe, pctx internal.ProbeContext, timeoutSecond int, ignoreTLS, ignoreSchedule bool) error {
 	probeLog := engineLog.WithField("probe", probe.Name)
 	if ctx.Err() != nil {
 		probeLog.Errorf("context error. got %s", ctx.Err())
 		return fmt.Errorf("%w : context probably timed-out. got %s", errors.ErrContextError, ctx.Err())
 	}
 	pctx["probe"] = probe.Name
-	if ProbeCanStartBySchedule(ctx, probe) {
+	if ProbeCanStartBySchedule(ctx, probe) || ignoreSchedule {
 		pctx[fmt.Sprintf("probe.%s.id", probe.Name)] = probe.ID
 		startTime := time.Now()
 		pctx[fmt.Sprintf("probe.%s.starttime", probe.Name)] = startTime
@@ -61,7 +61,7 @@ func ExecuteProbe(ctx context.Context, probe *internal.Probe, pctx internal.Prob
 		pctx[fmt.Sprintf("probe.%s.req", probe.Name)] = strings.Join(reqNames, ",")
 
 		for seq, reqs := range probe.Requests {
-			err := ExecuteProbeRequest(ctx, probe, reqs, seq, pctx)
+			err := ExecuteProbeRequest(ctx, probe, reqs, seq, timeoutSecond, ignoreTLS, pctx)
 			if err != nil {
 				pctx[fmt.Sprintf("probe.%s.fail", probe.Name)] = true
 				pctx[fmt.Sprintf("probe.%s.success", probe.Name)] = false
@@ -77,7 +77,8 @@ func ExecuteProbe(ctx context.Context, probe *internal.Probe, pctx internal.Prob
 	return nil
 }
 
-func ExecuteProbeRequest(ctx context.Context, probe *internal.Probe, probeRequest *internal.ProbeRequest, sequence int, pctx internal.ProbeContext) error {
+func ExecuteProbeRequest(ctx context.Context, probe *internal.Probe, probeRequest *internal.ProbeRequest,
+	sequence int, timeoutSecond int, ignoreTLS bool, pctx internal.ProbeContext) error {
 
 	requestLog := engineLog.WithField("probe", probe.Name).WithField("request", probeRequest.Name)
 
@@ -105,7 +106,7 @@ func ExecuteProbeRequest(ctx context.Context, probe *internal.Probe, probeReques
 	pctx[fmt.Sprintf("probe.%s.req.%s.canstart", probe.Name, probeRequest.Name)] = true
 
 	requestLog.Tracef("Retriefing HTTP client with %d second timeout", TimeoutsSecond)
-	client := NewHttpClient(TimeoutsSecond, TimeoutsSecond, false)
+	client := NewHttpClient(timeoutSecond, timeoutSecond, ignoreTLS)
 	var request *http.Request
 	var err error
 
