@@ -1,7 +1,11 @@
 package internal
 
 import (
+	"fmt"
 	yaml "gopkg.in/yaml.v3"
+	"net"
+	"regexp"
+	"strings"
 )
 
 const (
@@ -99,6 +103,39 @@ type Mailbox struct {
 	Email string `yaml:"email"`
 }
 
+func NewMailbox(e string) (*Mailbox, error) {
+	var display, email string
+	if strings.Contains(e, "<") && strings.Contains(e, ">") {
+		if strings.Index(e, "<") > strings.Index(e, ">") {
+			return nil, fmt.Errorf("%s is not a valid email address", e)
+		}
+		display = e[:strings.Index(e, "<")]
+		email = e[strings.Index(e, "<")+1 : strings.Index(e, ">")]
+	} else if !strings.Contains(e, "<") && !strings.Contains(e, ">") {
+		email = strings.TrimSpace(e)
+	} else {
+		return nil, fmt.Errorf("%s is not a valid email address", e)
+	}
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("%s is not a valid email address", e)
+	}
+	if parts[0] == "" {
+		return nil, fmt.Errorf("%s is not a valid email address", e)
+	}
+	if b, _ := regexp.MatchString(`\s`, parts[0]); b {
+		return nil, fmt.Errorf("%s is not a valid email address", e)
+	}
+	mx, err := net.LookupMX(parts[1])
+	if err != nil || len(mx) == 0 {
+		return nil, fmt.Errorf("%s is not a valid email address", e)
+	}
+	return &Mailbox{
+		Name:  display,
+		Email: email,
+	}, nil
+}
+
 func (this *Mailbox) Equals(that *Mailbox) bool {
 	if that == nil {
 		return false
@@ -107,6 +144,13 @@ func (this *Mailbox) Equals(that *Mailbox) bool {
 		return false
 	}
 	return true
+}
+
+func (this *Mailbox) String() string {
+	if this.Name == "" {
+		return this.Email
+	}
+	return fmt.Sprintf("%s <%s>", this.Name, this.Email)
 }
 
 type ProbeRequest struct {
