@@ -471,7 +471,7 @@ func editProbeRequest(probe *internal.Probe, idx int) {
 		table.Append([]string{"Request Headers", fmt.Sprintf("%d configured", len(probeRequest.HeadersExpr))})
 
 		if len(probeRequest.StartRequestIfExpr) > 0 {
-			table.Append([]string{"Start Request Criteria Expression", probeRequest.BodyExpr})
+			table.Append([]string{"Start Request Criteria Expression", probeRequest.StartRequestIfExpr})
 		} else {
 			table.Append([]string{"Start Request Criteria  Expression", "Not Set"})
 		}
@@ -548,16 +548,16 @@ func editProbeRequest(probe *internal.Probe, idx int) {
 			bodyExp := interact.Ask("New Body Expression? \n Must return string", stringDefault(probeRequest.BodyExpr, fmt.Sprintf("\"FooBar\"")), true)
 			probeRequest.BodyExpr = bodyExp
 		case 6:
-			expr := interact.Ask("New Certificate Check Expression? \n Must return boolean", stringDefault(probeRequest.BodyExpr, fmt.Sprintf("\"FooBar\"")), true)
+			expr := interact.Ask("New Certificate Check Expression? \n Must return boolean", stringDefault(probeRequest.CertificateCheckExpr, fmt.Sprintf("\"FooBar\"")), true)
 			probeRequest.CertificateCheckExpr = expr
 		case 7:
-			expr := interact.Ask("New Start Request Criteria Expression? \n Must return boolean", stringDefault(probeRequest.BodyExpr, fmt.Sprintf("\"FooBar\"")), true)
+			expr := interact.Ask("New Start Request Criteria Expression? \n Must return bool7ean", stringDefault(probeRequest.StartRequestIfExpr, fmt.Sprintf("\"FooBar\"")), true)
 			probeRequest.StartRequestIfExpr = expr
 		case 8:
-			expr := interact.Ask("New Success Criteria Expression? \n Must return boolean", stringDefault(probeRequest.BodyExpr, fmt.Sprintf("\"FooBar\"")), true)
+			expr := interact.Ask("New Success Criteria Expression? \n Must return boolean", stringDefault(probeRequest.SuccessIfExpr, fmt.Sprintf("\"FooBar\"")), true)
 			probeRequest.SuccessIfExpr = expr
 		case 9:
-			expr := interact.Ask("New Fail Criteria Expression? \n Must return boolean", stringDefault(probeRequest.BodyExpr, fmt.Sprintf("\"FooBar\"")), true)
+			expr := interact.Ask("New Fail Criteria Expression? \n Must return boolean", stringDefault(probeRequest.FailIfExpr, fmt.Sprintf("\"FooBar\"")), true)
 			probeRequest.FailIfExpr = expr
 		case 10:
 			return
