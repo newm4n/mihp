@@ -3,6 +3,7 @@ package notification
 import (
 	"bytes"
 	"embed"
+	"github.com/newm4n/mihp/internal"
 	"github.com/sirupsen/logrus"
 	"html/template"
 	"log"
@@ -47,11 +48,10 @@ func init() {
 }
 
 type EmailNotification struct {
-	FromField string `json:"from_field"`
-
-	ToList  []*Recipient `json:"to_list"`
-	CcList  []*Recipient `json:"cc_list"`
-	BccList []*Recipient `json:"bcc_list"`
+	FromField *internal.Mailbox   `json:"from_field"`
+	ToList    []*internal.Mailbox `json:"to_list"`
+	CcList    []*internal.Mailbox `json:"cc_list"`
+	BccList   []*internal.Mailbox `json:"bcc_list"`
 }
 
 func (notif *EmailNotification) Headers(subject string) string {

@@ -6,9 +6,10 @@ import (
 	"fmt"
 	interact "github.com/hyperjumptech/hyper-interactive"
 	"github.com/newm4n/mihp/internal"
-	"github.com/newm4n/mihp/minion/probing"
+	"github.com/newm4n/mihp/internal/probing"
 	"io/ioutil"
 	"os"
+	"time"
 )
 
 var (
@@ -45,6 +46,7 @@ func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage : %s (-central|-minion|-config|-once <probe>|-setup) -config <config-file>\n  Arguments:\n", os.Args[0])
 		flag.PrintDefaults()
+		fmt.Fprintf(flag.CommandLine.Output(), "Visit https://github.com/newm4n/mihp/documentation.md to know how to use MIHP\n")
 	}
 
 	if help {
@@ -146,14 +148,33 @@ func ProbeOnce(probeName, config string) {
 		if probe.Name == probeName {
 			timeout := 10
 			pCtx := internal.NewProbeContext()
-			fmt.Printf("Probing once. time-out %d seconds", timeout)
+			fmt.Printf("Probing once. time-out %d seconds\n", timeout)
 			err := probing.ExecuteProbe(context.Background(), probe, pCtx, timeout, true, true)
 			if err != nil {
-				fmt.Printf("Error while runing probe %s. Got %s", probeName, err.Error())
+				fmt.Printf("Error while runing probe %s. Got %s.\n", probe.Name, err.Error())
+				fmt.Printf("If the error is about I/O, check for some firewall or VPN.\n")
+				path := fmt.Sprintf("./probe-%s-fail-%s.txt", probe.Name, time.Now().Format(time.RFC3339))
+				file, err := os.Create(path)
+				if err != nil {
+					fmt.Printf("can not write context dump to %s\n", path)
+					return
+				}
+				defer file.Close()
+				file.WriteString(pCtx.ToString(false))
+				fmt.Printf("Context written to %s\n", path)
+				os.Exit(1)
+			}
+			fmt.Printf("Successfuly execute probe %s.\n", probe.Name)
+			path := fmt.Sprintf("./probe-%s-success-%s.txt", probe.Name, time.Now().Format(time.RFC3339))
+			file, err := os.Create(path)
+			if err != nil {
+				fmt.Printf("can not write context dump to %s\n", path)
 				return
 			}
-			fmt.Printf("Successfuly execute probe %s. Context follows.\n%s\n", probeName, pCtx.ToString(false))
-			return
+			defer file.Close()
+			file.WriteString(pCtx.ToString(false))
+			fmt.Printf("Context written to %s\n", path)
+			os.Exit(0)
 		}
 	}
 

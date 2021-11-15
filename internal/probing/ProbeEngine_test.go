@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/newm4n/mihp/internal"
-	"github.com/newm4n/mihp/minion/probing/dummy"
+	"github.com/newm4n/mihp/internal/probing/dummy"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"testing"

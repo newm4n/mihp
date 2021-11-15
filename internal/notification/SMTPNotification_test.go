@@ -1,15 +1,20 @@
 package notification
 
 import (
+	"github.com/newm4n/mihp/internal"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestSMTPNotification_SendNotification(t *testing.T) {
+	from := &internal.Mailbox{
+		Name:  "Dummy Sender",
+		Email: "dummysender@mihp.com",
+	}
 	notif := &SMTPNotification{
 		EmailNotification: EmailNotification{
-			FromField: "dummysender@mihp.com",
-			ToList: []*Recipient{
+			FromField: from,
+			ToList: []*internal.Mailbox{
 				{
 					Name:  "Dummy Target Notif",
 					Email: "dummytargetnotif@mihp.com",

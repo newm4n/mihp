@@ -8,9 +8,54 @@ import (
 	"strings"
 )
 
+func NewSMTPDownNotification() *SMTPNotification {
+	return &SMTPNotification{
+		EmailNotification: EmailNotification{
+			FromField: nil,
+			ToList:    nil,
+			CcList:    nil,
+			BccList:   nil,
+		},
+		EventType:     EventDown,
+		PasswordField: "",
+		ProbeName:     "",
+		Cause:         "",
+		UpDuration:    "",
+		DownDuration:  "",
+		SMTPHost:      "",
+		SMTPPort:      0,
+	}
+}
+
+func NewSMTPUpNotification() *SMTPNotification {
+	return &SMTPNotification{
+		EmailNotification: EmailNotification{
+			FromField: nil,
+			ToList:    nil,
+			CcList:    nil,
+			BccList:   nil,
+		},
+		EventType:     EventUp,
+		PasswordField: "",
+		ProbeName:     "",
+		Cause:         "",
+		UpDuration:    "",
+		DownDuration:  "",
+		SMTPHost:      "",
+		SMTPPort:      0,
+	}
+}
+
 type SMTPNotification struct {
 	EmailNotification
-	PasswordField string `json:"password_field"`
+
+	EventType     EventType `json:"event_type"`
+	PasswordField string    `json:"password_field"`
+
+	ProbeName    string
+	Cause        string
+	UpDuration   string
+	DownDuration string
 
 	SMTPHost string `json:"smtp_host"`
 	SMTPPort int    `json:"smtp_port"`
@@ -19,7 +64,7 @@ type SMTPNotification struct {
 func (notif *SMTPNotification) SendNotification(subject, body string) error {
 	sendmailLog := logrus.WithField("mailer", "sendmail").WithField("from", notif.FromField)
 
-	auth := smtp.PlainAuth("", notif.FromField, notif.PasswordField, notif.SMTPHost)
+	auth := smtp.PlainAuth("", notif.FromField.Email, notif.PasswordField, notif.SMTPHost)
 
 	var bodyBuffer bytes.Buffer
 
@@ -33,13 +78,21 @@ func (notif *SMTPNotification) SendNotification(subject, body string) error {
 	sendingLog := sendmailLog.WithField("to", strings.Join(receivers, ","))
 
 	sendingLog.Debugf("sending using server %s:%d > BodyExpr ... \n%s", notif.SMTPHost, notif.SMTPPort, bodyBuffer.String())
-	err := smtp.SendMail(fmt.Sprintf("%s:%d", notif.SMTPHost, notif.SMTPPort), auth, notif.FromField, receivers, bodyBuffer.Bytes())
+	err := smtp.SendMail(fmt.Sprintf("%s:%d", notif.SMTPHost, notif.SMTPPort), auth, notif.FromField.Email, receivers, bodyBuffer.Bytes())
 	if err != nil {
 		sendingLog.Error(err)
 		return err
 	}
 	sendingLog.Debug("send SMTP mail success")
 	return nil
+}
+
+func (notif *SMTPNotification) Notify() error {
+	if notif.EventType == EventUp {
+		return notif.NotifyUp(notif.ProbeName, notif.DownDuration)
+	} else {
+		return notif.NotifyDown(notif.ProbeName, notif.Cause, notif.UpDuration)
+	}
 }
 
 func (notif *SMTPNotification) NotifyDown(probeName, cause, upDuration string) error {

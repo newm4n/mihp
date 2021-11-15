@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	interact "github.com/hyperjumptech/hyper-interactive"
 	"github.com/newm4n/mihp/internal"
-	"github.com/newm4n/mihp/minion/probing"
+	"github.com/newm4n/mihp/internal/probing"
 	"github.com/newm4n/mihp/pkg/helper"
 	"github.com/newm4n/mihp/pkg/helper/cron"
 	"github.com/olekukonko/tablewriter"

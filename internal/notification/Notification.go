@@ -6,9 +6,21 @@ const (
 	NotifTypeTelegram  = "TELEGRAM"
 	NotifTypeSlack     = "SLACK"
 	NotifTypeMSTeams   = "MSTEAMS"
+
+	EventUp EventType = iota
+	EventDown
 )
 
+type EventType int
+
 type Notification interface {
-	NotifyUp(probeName, downDuration string) error
-	NotifyDown(probeName, cause, upDuration string) error
+	Notify() error
+}
+
+var (
+	notificationChannel chan Notification
+)
+
+func init() {
+	notificationChannel = make(chan Notification)
 }
