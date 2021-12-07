@@ -76,6 +76,7 @@ func (ds *DummyServer) Start() {
 			WriteTimeout:      10 * time.Second,
 			IdleTimeout:       10 * time.Second,
 		}
+		fmt.Printf("Dummy server alive at %d\n", ds.Port)
 		byteArr := make([]byte, 20)
 		for i := 0; i < 20; i++ {
 			byteArr[i] = byte(rand.Intn(25) + 65)

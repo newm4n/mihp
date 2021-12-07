@@ -51,6 +51,22 @@ func main() {
 
 	if help {
 		flag.Usage()
+		//
+		//ds := dummy.DummyServer{}
+		//ds.Start()
+		//
+		//gracefulStop := make(chan os.Signal, 1)
+		//// We'll accept graceful shutdowns when quit via SIGINT (Ctrl+C)
+		//// SIGKILL, SIGQUIT or SIGTERM (Ctrl+/) will not be caught.
+		//signal.Notify(gracefulStop, os.Interrupt)
+		//signal.Notify(gracefulStop, syscall.SIGTERM)
+		//signal.Notify(gracefulStop, syscall.SIGINT)
+		//
+		//// Block until we receive our signal.
+		//<-gracefulStop
+		//
+		//ds.Stop()
+
 	} else if setup {
 		Setup(configFile)
 	} else if len(runOnce) > 0 {
