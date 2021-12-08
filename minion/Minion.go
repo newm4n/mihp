@@ -43,8 +43,10 @@ func init() {
 
 func Initialize(MIHPConfig *internal.MIHPConfig) {
 	Config = MIHPConfig
-	for _, probe := range Config.ProbePool {
-		AcceptProbe(probe)
+	if Config.ProbePool != nil {
+		for _, probe := range Config.ProbePool {
+			AcceptProbe(probe)
+		}
 	}
 }
 
@@ -106,7 +108,9 @@ func SendVoteRequest() {
 	}()
 }
 
-func Start(ctx context.Context) {
+func Start(ctx context.Context, config *internal.MIHPConfig) {
+	Initialize(config)
+
 	go func() {
 		err := com.StartServer(ctx, MyIP, MinionUDPServerPort, MinionDaemonHandler)
 		if err != nil {

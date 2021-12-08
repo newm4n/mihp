@@ -4,11 +4,14 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	interact "github.com/hyperjumptech/hyper-interactive"
+	hyper_interactive "github.com/hyperjumptech/hyper-interactive"
 	"github.com/newm4n/mihp/internal"
 	"github.com/newm4n/mihp/internal/probing"
 	"github.com/newm4n/mihp/minion"
+	"github.com/newm4n/mihp/pkg/errors"
+	"github.com/newm4n/mihp/pkg/helper/cron"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"time"
 )
@@ -65,48 +68,66 @@ func main() {
 	}
 }
 
-func Setup(config string) {
-	if len(config) == 0 {
+func LoadConfigFile(configPath string) (config *internal.MIHPConfig, err error) {
+	if len(configPath) == 0 {
 		if fInfo, err := os.Stat("./mihp.yaml"); err == nil && !fInfo.IsDir() {
-			err := SetupConfig("./mihp.yaml")
-			if err != nil {
-				fmt.Printf("got error %s\n", err.Error())
-			}
-		} else if fInfo, err := os.Stat("/etc/mihp/mihp.yaml"); err == nil && !fInfo.IsDir() {
-			err := SetupConfig("/etc/mihp/mihp.yaml")
-			if err != nil {
-				fmt.Printf("got error %s\n", err.Error())
-			}
-		} else {
-			if interact.Confirm("You do not specify configuration file to configure, you want to create one in current folder \"./mihp.yaml\" ? ", true) {
-				err := SetupConfig("./mihp.yaml")
+			return loadConfig("./mihp.yaml")
+		}
+		if fInfo, err := os.Stat("/etc/mihp/mihp.yaml"); err == nil && !fInfo.IsDir() {
+			return loadConfig("/etc/mihp/mihp.yaml")
+		}
+		return nil, errors.ErrConfigFileNotFound
+	}
+	if fInfo, err := os.Stat(configPath); err != nil {
+		return nil, fmt.Errorf("can not load config file %s. got %w", configPath, err)
+	} else if fInfo.IsDir() {
+		return nil, fmt.Errorf("can not load config file %s, its a directory", configPath)
+	}
+	return loadConfig(configPath)
+}
+
+func loadConfig(path string) (config *internal.MIHPConfig, err error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	yamlBytes, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := internal.YAMLToMIHPConfig(yamlBytes)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Version != internal.Version {
+		return nil, fmt.Errorf("invalid YAML Version %s", cfg.Version)
+	}
+	if cfg.ProbePool == nil {
+		cfg.ProbePool = make(internal.ProbePool, 0)
+	}
+	return cfg, nil
+}
+
+func Setup(config string) {
+	cfg, err := LoadConfigFile(config)
+	if err != nil {
+		if err == errors.ErrConfigFileNotFound {
+			if hyper_interactive.Confirm("MIHP.yaml not found, you wish to create one in the current folder ?", true) {
+				err := SetupConfig(&internal.MIHPConfig{
+					Version:   internal.Version,
+					ProbePool: make(internal.ProbePool, 0),
+				}, "./MIHP.yaml")
 				if err != nil {
 					fmt.Printf("got error %s\n", err.Error())
 				}
 			}
+		} else {
+			fmt.Printf("got error %s\n", err.Error())
 		}
 	} else {
-		if fInfo, err := os.Stat(config); err != nil {
-			fmt.Printf("Problem open file %s, got %s\n", config, err.Error())
-			if interact.Confirm("Do you want to create one in this directory \"./mihp.yaml\" ? ", true) {
-				err := SetupConfig("./mihp.yaml")
-				if err != nil {
-					fmt.Printf("got error %s\n", err.Error())
-				}
-			}
-		} else if fInfo.IsDir() {
-			fmt.Printf("Problem open file %s, its a directory", config)
-			if interact.Confirm(fmt.Sprintf("Do you want to create one in ? \"%s/mihp.yaml\" ? ", config), true) {
-				err := SetupConfig(fmt.Sprintf("%s/mihp.yaml", config))
-				if err != nil {
-					fmt.Printf("got error %s\n", err.Error())
-				}
-			}
-		} else {
-			err := SetupConfig(config)
-			if err != nil {
-				fmt.Printf("got error %s\n", err.Error())
-			}
+		err := SetupConfig(cfg, config)
+		if err != nil {
+			fmt.Printf("got error %s\n", err.Error())
 		}
 	}
 	fmt.Println("Bye.")
@@ -117,9 +138,68 @@ func StartServer(config string) {
 }
 
 func StartMinion(config string) {
-	fmt.Println("Starting MIHP MINION")
-	minionContext := context.Background()
-	minion.Start(minionContext)
+	cfg, err := LoadConfigFile(config)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "got error %s\n", err.Error())
+		return
+	} else {
+		if cfg.Minion == nil {
+			_, _ = fmt.Fprintf(os.Stderr, "configuration missing minion section\n")
+			return
+		}
+		if len(cfg.Minion.MinionUID) == 0 {
+			_, _ = fmt.Fprintf(os.Stderr, "configuration missing minion UID\n")
+			return
+		}
+		if len(cfg.Minion.Name) == 0 {
+			_, _ = fmt.Fprintf(os.Stderr, "configuration missing minion Name\n")
+			return
+		}
+		if len(cfg.Minion.CentralBaseURL) == 0 {
+			_, _ = fmt.Fprintf(os.Stderr, "configuration missing minion Central URL\n")
+			return
+		} else {
+			_, err := url.ParseRequestURI(cfg.Minion.CentralBaseURL)
+			if err != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "invalid minions central URL %s\n", cfg.Minion.CentralBaseURL)
+				return
+			}
+		}
+		if len(cfg.Minion.Datacenter) == 0 {
+			_, _ = fmt.Fprintf(os.Stderr, "configuration missing minion Data Center name\n")
+			return
+		}
+		if len(cfg.Minion.CountryISO) == 0 {
+			_, _ = fmt.Fprintf(os.Stderr, "configuration missing minion Country ISO code\n")
+			return
+		} else {
+			found := false
+			for _, cc := range CountryCodes {
+				if cc.Code == cfg.Minion.CountryISO {
+					found = true
+					break
+				}
+			}
+			if !found {
+				_, _ = fmt.Fprintf(os.Stderr, "invalid minion country code %s\n", cfg.Minion.CountryISO)
+				return
+			}
+		}
+		if len(cfg.Minion.ReportCron) == 0 {
+			_, _ = fmt.Fprintf(os.Stderr, "configuration missing minion Reporting CRON schedule\n")
+			return
+		} else {
+			_, err = cron.NewSchedule(cfg.Minion.ReportCron)
+			if err != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "invalid minion cron syntax %s\n", cfg.Minion.ReportCron)
+				return
+			}
+		}
+
+		fmt.Println("Starting MIHP MINION")
+		minionContext := context.Background()
+		minion.Start(minionContext, cfg)
+	}
 }
 
 func ProbeOnce(probeName, config string) {

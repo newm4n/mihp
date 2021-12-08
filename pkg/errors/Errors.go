@@ -20,4 +20,6 @@ var (
 	ErrHttpBodyReadError     = fmt.Errorf("error while reading http response body")
 	ErrSuccessIfIsFalse      = fmt.Errorf("probe result SuccessIfExpr false")
 	ErrFailIfIsTrue          = fmt.Errorf("probe result FailIfExpr true")
+
+	ErrConfigFileNotFound = fmt.Errorf("can not find default config file. please create one")
 )
