@@ -11,11 +11,15 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
+	"time"
 )
 
 const (
-	MinionServerPort = 62891
+	MinionUDPServerPort = 62891
+	MinionUDPClientPort = 62892
 )
 
 var (
@@ -24,10 +28,17 @@ var (
 	CallbackNotifChannel = make(map[string]*probing.ProbeEventProcessor)
 	LogNotifChannel      = make(map[string]*probing.ProbeEventProcessor)
 	Rank                 uint64
+	MyIP                 net.IP
+	LeaderIP             net.IP
+	LeaderRank           uint64
+	VoteTickDuration     = 10 * time.Second // should be arround every 5 minutes ?
 )
 
 func init() {
 	Rank = rand.Uint64()
+	LeaderRank = Rank
+	MyIP = com.GetOutboundIP()
+	LeaderIP = net.IP{MyIP[0], MyIP[1], MyIP[2], MyIP[3]}
 }
 
 func Initialize(MIHPConfig *internal.MIHPConfig) {
@@ -45,14 +56,69 @@ func AcceptProbe(probe *internal.Probe) {
 }
 
 func MinionDaemonHandler(message *com.UDPMessage) {
+	fromIP := message.FromAddr.IP
+	if message.Message == "VREQ" {
+		err := com.SendUDPMessage(MyIP, MinionUDPClientPort, fromIP, MinionUDPServerPort, fmt.Sprintf("VRES %d", Rank))
+		if err != nil {
+			logrus.Errorf("error while sending vote response to %s. got %s", fromIP.String(), err.Error())
+		}
+	} else if strings.HasPrefix(message.Message, "VRES ") {
+		theirRankStr := strings.TrimSpace(message.Message[5:])
+		theirRank, err := strconv.ParseUint(theirRankStr, 10, 64)
+		if err != nil {
+			logrus.Errorf("error while receiving vote response from %s. got invalid rank number format %s", fromIP.String(), theirRankStr)
+		} else {
+			if theirRank > LeaderRank {
+				LeaderIP = fromIP
+				LeaderRank = theirRank
+				logrus.Infof("Choosen new leader %s of rank %d", LeaderIP, LeaderRank)
+			}
+		}
+	}
+}
 
+func SendVoteRequest() {
+	go func() {
+		for lastByte := byte(0); true; lastByte++ {
+			if lastByte != MyIP[3] {
+				target := net.IP{MyIP[0], MyIP[1], MyIP[2], lastByte}
+				err := com.SendUDPMessage(MyIP, MinionUDPClientPort, target, MinionUDPServerPort, "VREQ")
+				if err != nil {
+					logrus.Errorf("error while sending vote request to %s. got %s", target.String(), err.Error())
+				}
+			}
+			lastByte++
+			if lastByte == 255 {
+				break
+			}
+		}
+		time.Sleep(5 * time.Second)
+		if LeaderRank == Rank {
+			logrus.Info("Current leader is my self")
+		} else {
+			logrus.Infof("Current leader is %s with rank %d", LeaderIP, LeaderRank)
+		}
+	}()
 }
 
 func Start(ctx context.Context) {
 	go func() {
-		err := com.StartServer(ctx, net.IP{0, 0, 0, 0}, MinionServerPort, MinionDaemonHandler)
+		err := com.StartServer(ctx, net.IP{0, 0, 0, 0}, MinionUDPServerPort, MinionDaemonHandler)
 		if err != nil {
 			fmt.Sprintf(err.Error())
+		}
+	}()
+
+	ticker := time.NewTicker(VoteTickDuration)
+	stopTicker := make(chan bool)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				SendVoteRequest()
+			case <-stopTicker:
+				return
+			}
 		}
 	}()
 
@@ -67,6 +133,8 @@ func Start(ctx context.Context) {
 	<-gracefulStop
 
 	com.StopServer()
+	stopTicker <- true
+	ticker.Stop()
 
 	// Optionally, you could run srv.Shutdown in a goroutine and block on
 	// <-ctx.Done() if your application should wait for other services
