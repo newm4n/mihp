@@ -7,6 +7,7 @@ import (
 	interact "github.com/hyperjumptech/hyper-interactive"
 	"github.com/newm4n/mihp/internal"
 	"github.com/newm4n/mihp/internal/probing"
+	"github.com/newm4n/mihp/minion"
 	"io/ioutil"
 	"os"
 	"time"
@@ -132,7 +133,9 @@ func StartServer(config string) {
 }
 
 func StartMinion(config string) {
-	fmt.Println("Bye.")
+	fmt.Println("Starting MIHP MINION")
+	minionContext := context.Background()
+	minion.Start(minionContext)
 }
 
 func ProbeOnce(probeName, config string) {

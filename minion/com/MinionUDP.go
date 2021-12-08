@@ -3,6 +3,7 @@ package com
 import (
 	"context"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"log"
 	"net"
 	"reflect"
@@ -28,6 +29,7 @@ func StopServer() {
 }
 
 func StartServer(ctx context.Context, ip net.IP, port int, handler UDPMessageHandler) error {
+	logrus.Infof("UDP Server listening at %s:%d", ip.String(), port)
 	ServerAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", ip.String(), port))
 	if err != nil {
 		return err
@@ -58,7 +60,9 @@ func StartServer(ctx context.Context, ip net.IP, port int, handler UDPMessageHan
 			n, addr, err := ServerConn.ReadFromUDP(buf)
 			if err != nil {
 				if reflect.TypeOf(err).String() != "*net.OpError" {
-					fmt.Println("Error: ", err, reflect.TypeOf(err).String())
+					logrus.Errorf("Error: got %s of type %s", err, reflect.TypeOf(err).String())
+				} else {
+					logrus.Errorf("Error: got %s", err)
 				}
 				break
 			}
