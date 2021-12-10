@@ -8,11 +8,13 @@ import (
 	interact "github.com/hyperjumptech/hyper-interactive"
 	"github.com/newm4n/mihp/internal"
 	"github.com/newm4n/mihp/internal/probing"
+	"github.com/newm4n/mihp/minion/com"
 	"github.com/newm4n/mihp/pkg/helper"
 	"github.com/newm4n/mihp/pkg/helper/cron"
 	"github.com/olekukonko/tablewriter"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
+	"net"
 	"os"
 	"regexp"
 	"strings"
@@ -1081,15 +1083,25 @@ func configureMinion(config *internal.MIHPConfig) (err error) {
 		} else {
 			table.Append([]string{"Reporting CRON", minion.ReportCron})
 		}
+		if len(minion.MinionIP) == 0 {
+			table.Append([]string{"Bind IP", "Not Configured"})
+		} else {
+			table.Append([]string{"Bind IP", minion.MinionIP})
+		}
+		if len(minion.MinionNetwork) == 0 {
+			table.Append([]string{"Network Mask", "Not Configured"})
+		} else {
+			table.Append([]string{"Network Mask", minion.MinionNetwork})
+		}
 
 		table.SetAlignment(tablewriter.ALIGN_LEFT)
 		table.Render()
 
 		switch interact.Select("What to do ?", []string{
 			"Set Name", "Set UID", "Set Country", "Set Datacenter",
-			"Set Central Base URL", "Set Reporting Cron",
+			"Set Central Base URL", "Set Reporting Cron", "Set Bind IP", "Set Network Mask",
 			"Finish",
-		}, 1, 7, false) {
+		}, 1, 9, false) {
 		case 1:
 			minion.Name = interact.Ask("New Name ?", stringDefault(minion.Name, helper.RandomName()), true)
 		case 2:
@@ -1132,6 +1144,29 @@ func configureMinion(config *internal.MIHPConfig) (err error) {
 				}
 			}
 		case 7:
+			detectedIP := com.GetOutboundIP().String()
+			for {
+				newIPStr := interact.Ask("New Bind IP ?", stringDefault(minion.MinionIP, detectedIP), true)
+				newIP := net.ParseIP(newIPStr)
+				if newIP == nil {
+					fmt.Printf("%s is an invalid IP", newIPStr)
+					continue
+				}
+				minion.MinionIP = newIPStr
+				break
+			}
+		case 8:
+			for {
+				newMaskStr := interact.Ask("New Network Mask ?", stringDefault(minion.MinionNetwork, "255.255.255.0"), true)
+				newMaskIP := net.ParseIP(newMaskStr)
+				if newMaskIP == nil {
+					fmt.Printf("%s is an invalid Net Mask", newMaskIP)
+					continue
+				}
+				minion.MinionNetwork = newMaskStr
+				break
+			}
+		case 9:
 			if config.Minion == nil {
 				config.Minion = minion
 			}

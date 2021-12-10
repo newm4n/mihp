@@ -61,12 +61,14 @@ type DBConfig struct {
 }
 
 type MinionConfig struct {
-	CentralBaseURL string
-	ReportCron     string
-	Name           string
-	CountryISO     string
-	Datacenter     string
-	MinionUID      string
+	MinionIP       string `json:"minion_ip" yaml:"minion_ip"`
+	MinionNetwork  string `json:"minion_network" yaml:"minion_network"`
+	CentralBaseURL string `json:"central_base_url" yaml:"central_base_url"`
+	ReportCron     string `json:"report_cron" yaml:"report_cron"`
+	Name           string `json:"name" yaml:"name"`
+	CountryISO     string `json:"country_iso" yaml:"country_iso"`
+	Datacenter     string `json:"datacenter" yaml:"datacenter"`
+	MinionUID      string `json:"minion_uid" yaml:"minion_uid"`
 }
 
 type ProbePool []*Probe

@@ -125,3 +125,52 @@ func SendUDPMessage(localIP net.IP, localPort int, targetIP net.IP, targetPort i
 	}
 	return nil
 }
+
+func GetIPNetworkGroup(ip net.IP, mask net.IPMask) []net.IP {
+	classA := bytesByMask(ip[0], mask[0])
+	classB := bytesByMask(ip[1], mask[1])
+	classC := bytesByMask(ip[2], mask[2])
+	classD := bytesByMask(ip[3], mask[3])
+	ips := make([]net.IP, 0)
+	for _, a := range classA {
+		for _, b := range classB {
+			for _, c := range classC {
+				for _, d := range classD {
+					ips = append(ips, net.IP{a, b, c, d})
+					if len(ips) == 256 {
+						return ips
+					}
+				}
+			}
+		}
+	}
+	return ips
+}
+
+func bytesByMask(b, m byte) []byte {
+	bytes := make([]byte, 0)
+	for i := byte(0); true; i++ {
+		if b&m == i&m {
+			bytes = append(bytes, i)
+		}
+		if i == 255 {
+			break
+		}
+	}
+	return bytes
+}
+
+func NetmaskForSlash(slash int) net.IPMask {
+	if slash >= 32 {
+		return net.IPMask{255, 255, 255, 255}
+	}
+	if slash <= 0 {
+		return net.IPMask{0, 0, 0, 0}
+	}
+	bits := (uint32(0xFFFFFFFF) >> slash) ^ uint32(0xFFFFFFFF)
+	b1 := (bits >> 24) & 0x000000FF
+	b2 := (bits >> 16) & 0x000000FF
+	b3 := (bits >> 8) & 0x000000FF
+	b4 := bits & 0x000000FF
+	return net.IPMask{byte(b1), byte(b2), byte(b3), byte(b4)}
+}
