@@ -18,3 +18,8 @@ test: build-linux
 run-setup: build-linux
 	./$(IMAGE_NAME).app -setup
 
+distribute: build-linux
+	scp -C MIHP.app root@MIHP1:/root
+	scp -C MIHP.app root@MIHP2:/root
+	scp -C MIHP.app root@MIHP3:/root
+	scp -C MIHP.app root@MIHP4:/root

@@ -70,7 +70,7 @@ func Initialize(MIHPConfig *internal.MIHPConfig) {
 
 	fmt.Printf("BIND IP     : %s\n", MyIP.String())
 	fmt.Printf("NET MASK    : %s\n", MyNetmask.String())
-
+	fmt.Printf("RANK        : %d\n", Rank)
 }
 
 func AcceptProbe(probe *internal.Probe) {
@@ -107,8 +107,15 @@ func MinionDaemonHandler(message *com.UDPMessage) {
 					logrus.Infof("Choosen new leader %s of rank %d", LeaderIP, LeaderRank)
 				}
 			}
-			if _, ok := MinionGroupList[fromIP.String()]; !ok {
-				MinionGroupList[fromIP.String()] = &PingPong{}
+			if pp, ok := MinionGroupList[fromIP.String()]; !ok {
+				MinionGroupList[fromIP.String()] = &PingPong{
+					Ping:         time.Now(),
+					Pong:         time.Now(),
+					PongReceived: true,
+				}
+			} else {
+				pp.Pong = time.Now()
+				pp.PongReceived = true
 			}
 		} else if message.Message == "PING" {
 			err := com.SendUDPMessage(message.Conn, fromIP, MinionUDPPort, "PONG")
@@ -148,9 +155,10 @@ func SendPingRequests(conn *net.UDPConn) {
 
 func SendVoteRequest(conn *net.UDPConn) {
 	logrus.Info("Sending vote requests ... ")
-	for k, _ := range MinionGroupList {
-		delete(MinionGroupList, k)
-	}
+
+	LeaderIP = MyIP
+	LeaderRank = Rank
+
 	CanPing = false
 	for _, ip := range com.GetIPNetworkGroup(MyIP, MyNetmask) {
 		if bytes.Equal(MyIP, ip) {
