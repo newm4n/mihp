@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"log"
 	"net"
 	"testing"
 	"time"
@@ -31,14 +32,14 @@ func TestIPEqual(t *testing.T) {
 }
 
 func TestGetIPNetworkGroup(t *testing.T) {
-	ips := GetIPNetworkGroup(net.IP{1, 2, 3, 4}, net.IPMask{255, 255, 255, 255})
+	ips := GetIPNetworkGroup(IP{1, 2, 3, 4}, NetMask{255, 255, 255, 255})
 	assert.Equal(t, 1, len(ips))
 	assert.Equal(t, byte(1), ips[0][0])
 	assert.Equal(t, byte(2), ips[0][1])
 	assert.Equal(t, byte(3), ips[0][2])
 	assert.Equal(t, byte(4), ips[0][3])
 
-	ips = GetIPNetworkGroup(net.IP{1, 2, 3, 4}, net.IPMask{255, 255, 255, 0})
+	ips = GetIPNetworkGroup(IP{1, 2, 3, 4}, NetMask{255, 255, 255, 0})
 	assert.Equal(t, 256, len(ips))
 
 	for i, ip := range ips {
@@ -48,8 +49,13 @@ func TestGetIPNetworkGroup(t *testing.T) {
 		assert.Equal(t, byte(i), ip[3])
 	}
 
-	ips = GetIPNetworkGroup(net.IP{1, 2, 3, 4}, net.IPMask{255, 255, 0, 0})
+	ips = GetIPNetworkGroup(IP{1, 2, 3, 4}, NetMask{255, 255, 0, 0})
 	assert.Equal(t, 256, len(ips))
+
+	ips = GetIPNetworkGroup(IP{10, 104, 0, 3}, NetMask{255, 255, 255, 0})
+	for _, ip := range ips {
+		log.Println(ip.String())
+	}
 }
 
 func TestGetOutboundIP(t *testing.T) {
@@ -81,4 +87,13 @@ func TestNetmaskForSlash(t *testing.T) {
 		assert.Equal(t, byte(0), mask[2])
 		assert.Equal(t, byte(0), mask[3])
 	})
+}
+
+func TestBytesByMask(t *testing.T) {
+	byteArr := bytesByMask(123, 255)
+	assert.Equal(t, 1, len(byteArr))
+	assert.Equal(t, byte(123), byteArr[0])
+
+	byteArr = bytesByMask(123, 0)
+	assert.Equal(t, 256, len(byteArr))
 }

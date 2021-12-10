@@ -19,8 +19,7 @@ import (
 )
 
 const (
-	MinionUDPServerPort = 62891
-	MinionUDPClientPort = 62892
+	MinionUDPPort = 62891
 )
 
 var (
@@ -30,9 +29,9 @@ var (
 	LogNotifChannel      = make(map[string]*probing.ProbeEventProcessor)
 	Rank                 uint64
 	VoteCount            uint64
-	MyIP                 net.IP
-	MyNetmask            net.IPMask
-	LeaderIP             net.IP
+	MyIP                 com.IP
+	MyNetmask            com.NetMask
+	LeaderIP             com.IP
 	LeaderRank           uint64
 	VoteTickDuration     = 10 * time.Second // should be arround every 5 minutes ?
 	PingTickDuration     = 30 * time.Second
@@ -44,7 +43,7 @@ func init() {
 	Rank = rand.Uint64()
 	LeaderRank = Rank
 	MyIP = com.GetOutboundIP()
-	LeaderIP = net.IP{MyIP[0], MyIP[1], MyIP[2], MyIP[3]}
+	LeaderIP = com.IP{MyIP[0], MyIP[1], MyIP[2], MyIP[3]}
 }
 
 func Initialize(MIHPConfig *internal.MIHPConfig) {
@@ -55,19 +54,23 @@ func Initialize(MIHPConfig *internal.MIHPConfig) {
 		}
 	}
 
-	MyIP = net.ParseIP(Config.Minion.MinionIP)
-	MyNetmask = net.IPMask(net.ParseIP(Config.Minion.MinionIP))
+	MyIP = com.ParseIP(Config.Minion.MinionIP)
+	MyNetmask = com.ParseNetMask(Config.Minion.MinionNetwork)
 
 	if MyIP == nil {
 		MyIP = com.GetOutboundIP()
-		LeaderIP = net.IP{MyIP[0], MyIP[1], MyIP[2], MyIP[3]}
+		LeaderIP = com.IP{MyIP[0], MyIP[1], MyIP[2], MyIP[3]}
 		fmt.Printf("Bind IP missing from config, Minion will bind to ip %s", MyIP.String())
 	}
 
 	if MyNetmask == nil {
-		MyNetmask = net.IPMask{255, 255, 255, 0}
+		MyNetmask = com.NetMask{255, 255, 255, 0}
 		fmt.Printf("Net Mask missing from config, Minion will us ip mask %s", MyNetmask.String())
 	}
+
+	fmt.Printf("BIND IP     : %s\n", MyIP.String())
+	fmt.Printf("NET MASK    : %s\n", MyNetmask.String())
+
 }
 
 func AcceptProbe(probe *internal.Probe) {
@@ -79,16 +82,18 @@ func AcceptProbe(probe *internal.Probe) {
 
 func MinionDaemonHandler(message *com.UDPMessage) {
 	go func() {
-		fromIP := message.FromAddr.IP
+		fromIP := com.ParseIP(message.FromAddr.IP.String())
 		if strings.HasPrefix(message.Message, "VREQ ") {
-			err := com.SendUDPMessage(MyIP, MinionUDPClientPort, fromIP, MinionUDPServerPort, fmt.Sprintf("VRES %d", Rank))
+			logrus.Infof("Receive vote request from %s", fromIP)
+			logrus.Infof("Sending vote response to %s", fromIP)
+			err := com.SendUDPMessage(message.Conn, fromIP, MinionUDPPort, fmt.Sprintf("VRES %d", Rank))
 			if err != nil {
 				logrus.Errorf("error while sending vote response to %s. got %s", fromIP.String(), err.Error())
 			}
 			vCountStr := strings.TrimSpace(message.Message[5:])
 			vCount, err := strconv.ParseUint(vCountStr, 10, 64)
 			if vCount == 0 {
-				SendVoteRequest()
+				SendVoteRequest(message.Conn)
 			}
 		} else if strings.HasPrefix(message.Message, "VRES ") {
 			theirRankStr := strings.TrimSpace(message.Message[5:])
@@ -106,7 +111,7 @@ func MinionDaemonHandler(message *com.UDPMessage) {
 				MinionGroupList[fromIP.String()] = &PingPong{}
 			}
 		} else if message.Message == "PING" {
-			err := com.SendUDPMessage(MyIP, MinionUDPClientPort, fromIP, MinionUDPServerPort, "PONG")
+			err := com.SendUDPMessage(message.Conn, fromIP, MinionUDPPort, "PONG")
 			if err != nil {
 				logrus.Errorf("error while sending vote response to %s. got %s", fromIP.String(), err.Error())
 			}
@@ -119,7 +124,7 @@ func MinionDaemonHandler(message *com.UDPMessage) {
 	}()
 }
 
-func SendPingRequests() {
+func SendPingRequests(conn *net.UDPConn) {
 	if CanPing {
 		for k, pp := range MinionGroupList {
 			if MyIP.String() == k {
@@ -130,8 +135,8 @@ func SendPingRequests() {
 					logrus.Warnf("Node %s not respoinding to ping for %s. It probably dead and removed on the next vote.", k, time.Since(pp.Ping).String())
 				}
 			}
-			target := net.ParseIP(k)
-			err := com.SendUDPMessage(MyIP, MinionUDPClientPort, target, MinionUDPServerPort, fmt.Sprintf("PING", VoteCount))
+			target := com.ParseIP(k)
+			err := com.SendUDPMessage(conn, target, MinionUDPPort, fmt.Sprintf("PING", VoteCount))
 			pp.PongReceived = false
 			pp.Ping = time.Now()
 			if err != nil {
@@ -141,7 +146,7 @@ func SendPingRequests() {
 	}
 }
 
-func SendVoteRequest() {
+func SendVoteRequest(conn *net.UDPConn) {
 	logrus.Info("Sending vote requests ... ")
 	for k, _ := range MinionGroupList {
 		delete(MinionGroupList, k)
@@ -151,7 +156,8 @@ func SendVoteRequest() {
 		if bytes.Equal(MyIP, ip) {
 			continue
 		}
-		err := com.SendUDPMessage(MyIP, MinionUDPClientPort, ip, MinionUDPServerPort, fmt.Sprintf("VREQ %d", VoteCount))
+
+		err := com.SendUDPMessage(conn, ip, MinionUDPPort, fmt.Sprintf("VREQ %d", VoteCount))
 		if err != nil {
 			logrus.Errorf("error while sending vote request to %s. got %s", ip.String(), err.Error())
 		}
@@ -174,7 +180,7 @@ func Start(ctx context.Context, config *internal.MIHPConfig) {
 	Initialize(config)
 
 	go func() {
-		err := com.StartServer(ctx, MyIP, MinionUDPServerPort, MinionDaemonHandler)
+		err := com.StartServer(ctx, MyIP.ToNetIP(), MinionUDPPort, MinionDaemonHandler)
 		if err != nil {
 			fmt.Sprintf(err.Error())
 			os.Exit(1)
@@ -189,7 +195,7 @@ func Start(ctx context.Context, config *internal.MIHPConfig) {
 			case <-stopVoteTicker:
 				return
 			case <-voteTicker.C:
-				SendVoteRequest()
+				SendVoteRequest(com.UDPConn)
 			}
 		}
 	}()
@@ -202,7 +208,7 @@ func Start(ctx context.Context, config *internal.MIHPConfig) {
 			case <-stopPingTicker:
 				return
 			case <-pingTicker.C:
-				SendPingRequests()
+				SendPingRequests(com.UDPConn)
 			}
 		}
 	}()
@@ -231,7 +237,6 @@ func Start(ctx context.Context, config *internal.MIHPConfig) {
 	// <-ctx.Done() if your application should wait for other services
 	// to finalize based on context cancellation.
 	logrus.Info("shutting down minion........ bye")
-
 }
 
 type PingPong struct {
